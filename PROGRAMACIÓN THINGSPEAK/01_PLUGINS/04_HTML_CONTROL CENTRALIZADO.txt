@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sistema de Monitoreo Térmico</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+  background:#eef3f8;
+  color:#1e293b;
+}
+
+.dashboard{
+  max-width:1350px;
+  margin:auto;
+  padding:22px;
+}
+
+.header{
+  background:linear-gradient(135deg,#ffffff,#dbeafe);
+  border-radius:18px;
+  padding:24px 28px;
+  box-shadow:0 8px 24px rgba(15,23,42,.12);
+  display:grid;
+  grid-template-columns:1fr auto auto;
+  gap:28px;
+  align-items:center;
+  border-left:8px solid #2563eb;
+}
+
+.header h1{
+  margin:0;
+  font-size:30px;
+  color:#0f172a;
+  text-transform:uppercase;
+}
+
+.header p{
+  margin:8px 0 0;
+  color:#475569;
+  font-weight:bold;
+}
+
+.header-status{
+  border-left:1px solid #cbd5e1;
+  padding-left:24px;
+}
+
+.online{
+  color:#16a34a;
+  font-size:18px;
+  font-weight:900;
+}
+
+.clock{
+  border-left:1px solid #cbd5e1;
+  padding-left:24px;
+  text-align:right;
+  font-weight:900;
+  font-size:20px;
+  color:#0f172a;
+}
+
+.clock span{
+  display:block;
+  font-size:14px;
+  color:#475569;
+  margin-top:4px;
+}
+
+.grid{
+  margin-top:24px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:24px;
+}
+
+.station{
+  background:white;
+  border-radius:18px;
+  padding:22px;
+  box-shadow:0 10px 28px rgba(15,23,42,.12);
+  border-top:6px solid #2563eb;
+}
+
+.station.esclavo{
+  border-top-color:#f97316;
+}
+
+.station.estacion3{
+  border-top-color:#7c3aed;
+}
+
+.station-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:1px solid #e2e8f0;
+  padding-bottom:16px;
+}
+
+.station-title h2{
+  margin:0;
+  color:#0f172a;
+  font-size:23px;
+}
+
+.station-title p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-weight:bold;
+}
+
+.badge{
+  padding:9px 14px;
+  border-radius:999px;
+  background:#dcfce7;
+  color:#15803d;
+  font-weight:900;
+}
+
+.metrics{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px;
+  margin-top:22px;
+}
+
+.metric{
+  background:#f8fafc;
+  border-radius:14px;
+  padding:18px 12px;
+  text-align:center;
+  border:1px solid #dbe4ef;
+  min-height:100px;
+}
+
+.metric h3{
+  margin:0;
+  font-size:12px;
+  color:#475569;
+  text-transform:uppercase;
+}
+
+.metric .value{
+  margin-top:20px;
+  font-size:30px;
+  font-weight:900;
+  color:#2563eb;
+}
+
+.station.esclavo .metric .value{
+  color:#f97316;
+}
+
+.station.estacion3 .metric .value{
+  color:#7c3aed;
+}
+
+.sub{
+  margin-top:6px;
+  font-size:13px;
+  font-weight:bold;
+  color:#64748b;
+}
+
+.on{color:#dc2626!important;}
+.off{color:#16a34a!important;}
+.auto{color:#2563eb!important;}
+.manual{color:#f97316!important;}
+
+.btn{
+  margin-top:22px;
+  width:100%;
+  padding:18px;
+  border:0;
+  border-radius:14px;
+  color:white;
+  font-size:17px;
+  font-weight:900;
+  cursor:pointer;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+}
+
+.esclavo .btn{
+  background:linear-gradient(135deg,#f97316,#ea580c);
+}
+
+.estacion3 .btn{
+  background:linear-gradient(135deg,#7c3aed,#6d28d9);
+}
+
+.chart-grid{
+  margin-top:24px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+}
+
+.chart-card{
+  background:white;
+  border-radius:16px;
+  padding:20px;
+  box-shadow:0 8px 22px rgba(15,23,42,.10);
+  border:1px solid #e2e8f0;
+}
+
+.chart-card h2{
+  margin:0 0 14px;
+  color:#334155;
+  font-size:18px;
+  text-transform:uppercase;
+}
+
+canvas{
+  width:100%;
+  height:260px;
+}
+
+.footer{
+  text-align:center;
+  margin:24px 0 8px;
+  color:#64748b;
+  font-weight:bold;
+}
+
+@media(max-width:950px){
+  .header,
+  .grid,
+  .chart-grid,
+  .metrics{
+    grid-template-columns:1fr;
+  }
+
+  .header{
+    text-align:center;
+  }
+
+  .header-status,
+  .clock{
+    border-left:0;
+    padding-left:0;
+    text-align:center;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="dashboard">
+
+  <div class="header">
+    <div>
+      <h1>Sistema de Monitoreo Térmico</h1>
+      <p>Dashboard general de estaciones conectadas a ThingSpeak</p>
+    </div>
+
+    <div class="header-status">
+      <div class="online">● SISTEMA EN LÍNEA</div>
+      <p id="ultimaActualizacion">Actualizando...</p>
+    </div>
+
+    <div class="clock">
+      <div id="horaActual">--:--:--</div>
+      <span id="fechaActual">--/--/----</span>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="station">
+      <div class="station-head">
+        <div class="station-title">
+          <h2>Estación 1 - Maestro</h2>
+          <p>Oficina principal</p>
+        </div>
+        <div id="status1" class="badge">EN LÍNEA</div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <h3>Temperatura</h3>
+          <div id="temp1" class="value">--</div>
+          <div class="sub">°C</div>
+        </div>
+
+        <div class="metric">
+          <h3>Humedad</h3>
+          <div id="hum1" class="value">--</div>
+          <div class="sub">%</div>
+        </div>
+
+        <div class="metric">
+          <h3>Calefactor</h3>
+          <div id="cal1" class="value">--</div>
+          <div id="calTxt1" class="sub">Sin dato</div>
+        </div>
+
+        <div class="metric">
+          <h3>Modo</h3>
+          <div id="modo1" class="value">--</div>
+          <div id="modoTxt1" class="sub">Sin dato</div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="abrirControl(1)">CONTROL ESTACIÓN 1</button>
+    </div>
+
+    <div class="station esclavo">
+      <div class="station-head">
+        <div class="station-title">
+          <h2>Estación 2 - Esclavo</h2>
+          <p>Oficina secundaria</p>
+        </div>
+        <div id="status2" class="badge">EN LÍNEA</div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <h3>Temperatura</h3>
+          <div id="temp2" class="value">--</div>
+          <div class="sub">°C</div>
+        </div>
+
+        <div class="metric">
+          <h3>Humedad</h3>
+          <div id="hum2" class="value">--</div>
+          <div class="sub">%</div>
+        </div>
+
+        <div class="metric">
+          <h3>Calefactor</h3>
+          <div id="cal2" class="value">--</div>
+          <div id="calTxt2" class="sub">Sin dato</div>
+        </div>
+
+        <div class="metric">
+          <h3>Modo</h3>
+          <div id="modo2" class="value">--</div>
+          <div id="modoTxt2" class="sub">Sin dato</div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="abrirControl(2)">CONTROL ESTACIÓN 2</button>
+    </div>
+
+
+    <div class="station estacion3">
+      <div class="station-head">
+        <div class="station-title">
+          <h2>Estación 3 - Esclavo</h2>
+          <p>Estación adicional</p>
+        </div>
+        <div id="status3" class="badge">EN LÍNEA</div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <h3>Temperatura</h3>
+          <div id="temp3" class="value">--</div>
+          <div class="sub">°C</div>
+        </div>
+
+        <div class="metric">
+          <h3>Humedad</h3>
+          <div id="hum3" class="value">--</div>
+          <div class="sub">%</div>
+        </div>
+
+        <div class="metric">
+          <h3>Calefactor</h3>
+          <div id="cal3" class="value">--</div>
+          <div id="calTxt3" class="sub">Sin dato</div>
+        </div>
+
+        <div class="metric">
+          <h3>Modo</h3>
+          <div id="modo3" class="value">--</div>
+          <div id="modoTxt3" class="sub">Sin dato</div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="abrirControl(3)">CONTROL ESTACIÓN 3</button>
+    </div>
+
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h2>Tendencia de Temperatura (°C)</h2>
+      <canvas id="graficaTemp" width="600" height="260"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h2>Tendencia de Humedad (%)</h2>
+      <canvas id="graficaHum" width="600" height="260"></canvas>
+    </div>
+  </div>
+
+  <div class="footer">
+    IoT + ThingSpeak + ESP32 + DHT22 | Dashboard General
+  </div>
+
+</div>
+
+<script>
+var estaciones = {
+  1: {
+    nombre: "Estación 1 - Maestro",
+    channelID: "3407423",
+    readAPIKey: "QQINDGA87SSOTIWW",
+    controlURL: "https://thingspeak.mathworks.com/apps/plugins/675513"
+  },
+  2: {
+    nombre: "Estación 2 - Esclavo",
+    channelID: "3422001",
+    readAPIKey: "H0YG2LNXL3ULK1F1",
+    controlURL: "https://thingspeak.mathworks.com/apps/plugins/675516"
+  },
+  3: {
+    nombre: "Estación 3 - Esclavo",
+    channelID: "3423386",
+    readAPIKey: "SBHZ9PXISHQ8JL2Z",
+    controlURL: "https://thingspeak.mathworks.com/apps/plugins/675711"
+  }
+};
+
+/* Guarda el último valor válido para no borrar datos */
+var ultimoDatoValido = {
+  1: {
+    temp: null,
+    hum: null,
+    calefactor: null,
+    auto: null,
+    manual: null
+  },
+  2: {
+    temp: null,
+    hum: null,
+    calefactor: null,
+    auto: null,
+    manual: null
+  },
+  3: {
+    temp: null,
+    hum: null,
+    calefactor: null,
+    auto: null,
+    manual: null
+  }
+};
+
+function iniciar(){
+  leerTodas();
+  actualizarReloj();
+
+  /* ThingSpeak se actualiza cada 15 s como mínimo.
+     Este dashboard consulta cada 5 s para mejorar visualización,
+     pero si no hay dato nuevo mantiene el último valor válido. */
+  setInterval(leerTodas, 5000);
+  setInterval(actualizarReloj, 1000);
+}
+
+function actualizarReloj(){
+  var ahora = new Date();
+
+  document.getElementById("horaActual").innerHTML =
+    ahora.toLocaleTimeString("es-EC");
+
+  document.getElementById("fechaActual").innerHTML =
+    ahora.toLocaleDateString("es-EC");
+}
+
+function leerTodas(){
+  leerEstacion(1);
+  leerEstacion(2);
+  leerEstacion(3);
+  leerHistorico();
+
+  document.getElementById("ultimaActualizacion").innerHTML =
+    "Última actualización: " + new Date().toLocaleString("es-EC");
+}
+
+function leerEstacion(id){
+  var e = estaciones[id];
+
+  var url = "https://api.thingspeak.com/channels/" +
+    e.channelID +
+    "/feeds/last.json?api_key=" +
+    e.readAPIKey +
+    "&t=" + new Date().getTime();
+
+  fetch(url)
+    .then(function(response){
+      return response.json();
+    })
+    .then(function(f){
+
+      if(!f || f.field1 === undefined){
+        marcarOffline(id);
+        return;
+      }
+
+      var temp = parseFloat(f.field1);
+      var hum = parseFloat(f.field2);
+      var calefactor = parseInt(f.field3);
+      var auto = parseInt(f.field4);
+      var manual = parseInt(f.field5);
+
+      actualizarVista(id,temp,hum,calefactor,auto,manual);
+    })
+    .catch(function(){
+      marcarOffline(id);
+    });
+}
+
+function actualizarVista(id,temp,hum,calefactor,auto,manual){
+  var status = document.getElementById("status"+id);
+  status.innerHTML = "EN LÍNEA";
+  status.style.background = "#dcfce7";
+  status.style.color = "#15803d";
+
+  if(!isNaN(temp)){
+    ultimoDatoValido[id].temp = temp;
+    document.getElementById("temp"+id).innerHTML = temp.toFixed(1);
+  }else if(ultimoDatoValido[id].temp !== null){
+    document.getElementById("temp"+id).innerHTML =
+      ultimoDatoValido[id].temp.toFixed(1);
+  }
+
+  if(!isNaN(hum)){
+    ultimoDatoValido[id].hum = hum;
+    document.getElementById("hum"+id).innerHTML = hum.toFixed(0);
+  }else if(ultimoDatoValido[id].hum !== null){
+    document.getElementById("hum"+id).innerHTML =
+      ultimoDatoValido[id].hum.toFixed(0);
+  }
+
+  var cal = document.getElementById("cal"+id);
+  var calTxt = document.getElementById("calTxt"+id);
+
+  if(calefactor === 1 || calefactor === 0){
+    ultimoDatoValido[id].calefactor = calefactor;
+  }else{
+    calefactor = ultimoDatoValido[id].calefactor;
+  }
+
+  if(calefactor === 1){
+    cal.innerHTML = "ON";
+    cal.className = "value on";
+    calTxt.innerHTML = "Encendido";
+  }else if(calefactor === 0){
+    cal.innerHTML = "OFF";
+    cal.className = "value off";
+    calTxt.innerHTML = "Apagado";
+  }
+
+  var modo = document.getElementById("modo"+id);
+  var modoTxt = document.getElementById("modoTxt"+id);
+
+  if(auto === 1 || auto === 0){
+    ultimoDatoValido[id].auto = auto;
+  }else{
+    auto = ultimoDatoValido[id].auto;
+  }
+
+  if(manual === 1 || manual === 0){
+    ultimoDatoValido[id].manual = manual;
+  }else{
+    manual = ultimoDatoValido[id].manual;
+  }
+
+  if(auto === 1){
+    modo.innerHTML = "AUTO";
+    modo.className = "value auto";
+    modoTxt.innerHTML = "Automático";
+  }else if(manual === 1){
+    modo.innerHTML = "MANUAL";
+    modo.className = "value manual";
+    modoTxt.innerHTML = "Manual";
+  }else if(auto === 0 && manual === 0){
+    modo.innerHTML = "OFF";
+    modo.className = "value off";
+    modoTxt.innerHTML = "Sin modo activo";
+  }
+}
+
+function marcarOffline(id){
+  var status = document.getElementById("status"+id);
+  status.innerHTML = "SIN CONEXIÓN";
+  status.style.background = "#fee2e2";
+  status.style.color = "#dc2626";
+
+  /* IMPORTANTE:
+     No se borran temperatura, humedad, calefactor ni modo.
+     Se mantiene el último dato válido en pantalla. */
+}
+
+function leerHistorico(){
+  Promise.all([
+    fetch("https://api.thingspeak.com/channels/" + estaciones[1].channelID + "/feeds.json?api_key=" + estaciones[1].readAPIKey + "&results=30&t=" + new Date().getTime()).then(function(r){return r.json();}),
+    fetch("https://api.thingspeak.com/channels/" + estaciones[2].channelID + "/feeds.json?api_key=" + estaciones[2].readAPIKey + "&results=30&t=" + new Date().getTime()).then(function(r){return r.json();}),
+    fetch("https://api.thingspeak.com/channels/" + estaciones[3].channelID + "/feeds.json?api_key=" + estaciones[3].readAPIKey + "&results=30&t=" + new Date().getTime()).then(function(r){return r.json();})
+  ])
+  .then(function(res){
+    var data1 = res[0].feeds || [];
+    var data2 = res[1].feeds || [];
+    var data3 = res[2].feeds || [];
+
+    dibujarGraficaTemperatura(data1,data2,data3);
+    dibujarGraficaHumedad(data1,data2,data3);
+  })
+  .catch(function(error){
+    console.log("Error leyendo historico:", error);
+  });
+}
+
+function dibujarGraficaTemperatura(data1,data2,data3){
+  dibujarGrafica("graficaTemp",data1,data2,data3,"field1",0,50,"#2563eb","#f97316","#7c3aed");
+}
+
+function dibujarGraficaHumedad(data1,data2,data3){
+  dibujarGrafica("graficaHum",data1,data2,data3,"field2",0,100,"#2563eb","#f97316","#7c3aed");
+}
+
+function dibujarGrafica(canvasId,data1,data2,data3,field,minY,maxY,color1,color2,color3){
+  var canvas = document.getElementById(canvasId);
+  var ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  var w = canvas.width;
+  var h = canvas.height;
+  var left = 45;
+  var right = 20;
+  var top = 20;
+  var bottom = 35;
+
+  ctx.strokeStyle = "#e2e8f0";
+  ctx.lineWidth = 1;
+  ctx.font = "12px Arial";
+  ctx.fillStyle = "#475569";
+
+  for(var i=0;i<=5;i++){
+    var y = top + i * ((h - top - bottom) / 5);
+    var valor = maxY - i * ((maxY - minY) / 5);
+
+    ctx.beginPath();
+    ctx.moveTo(left,y);
+    ctx.lineTo(w-right,y);
+    ctx.stroke();
+
+    ctx.fillText(valor.toFixed(0),8,y+4);
+  }
+
+  ctx.strokeStyle = "#94a3b8";
+  ctx.beginPath();
+  ctx.moveTo(left,top);
+  ctx.lineTo(left,h-bottom);
+  ctx.lineTo(w-right,h-bottom);
+  ctx.stroke();
+
+  function puntoY(valor){
+    return top + (maxY - valor) * ((h - top - bottom) / (maxY - minY));
+  }
+
+  function puntoX(index,total){
+    if(total <= 1) return left;
+    return left + index * ((w - left - right) / (total - 1));
+  }
+
+  function dibujarLinea(data,color){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    var iniciado = false;
+
+    for(var i=0;i<data.length;i++){
+      var valor = parseFloat(data[i][field]);
+
+      if(isNaN(valor)) continue;
+
+      var x = puntoX(i,data.length);
+      var y = puntoY(valor);
+
+      if(!iniciado){
+        ctx.moveTo(x,y);
+        iniciado = true;
+      }else{
+        ctx.lineTo(x,y);
+      }
+    }
+
+    ctx.stroke();
+  }
+
+  dibujarLinea(data1,color1);
+  dibujarLinea(data2,color2);
+  dibujarLinea(data3,color3);
+
+  ctx.fillStyle = color1;
+  ctx.fillRect(left, h-18, 18, 3);
+  ctx.fillStyle = "#334155";
+  ctx.fillText("Estación 1 - Maestro", left+25, h-14);
+
+  ctx.fillStyle = color2;
+  ctx.fillRect(left+190, h-18, 18, 3);
+  ctx.fillStyle = "#334155";
+  ctx.fillText("Estación 2 - Esclavo", left+215, h-14);
+
+  ctx.fillStyle = color3;
+  ctx.fillRect(left+380, h-18, 18, 3);
+  ctx.fillStyle = "#334155";
+  ctx.fillText("Estación 3 - Esclavo", left+405, h-14);
+}
+
+function abrirControl(id){
+  window.open(estaciones[id].controlURL, "_blank");
+}
+
+iniciar();
+</script>
+
+</body>
+</html>

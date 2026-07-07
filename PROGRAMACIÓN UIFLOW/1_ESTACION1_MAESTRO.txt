@@ -1,0 +1,1078 @@
+# ==========================================================
+# ATOMS3 LITE ESTACIÓN 1 - MAESTRO
+# UIFlow 2.0 / MicroPython
+#
+# DHT22 + MQTT NODE-RED + THINGSPEAK + ESP-NOW
+#
+# ARQUITECTURA FINAL:
+#
+# ESTACIÓN 1 - MAESTRO:
+# - Tiene WiFi.
+# - Lee DHT22 local.
+# - Controla calefactor local.
+# - Lee comandos de ThingSpeak para ESTACIÓN 1.
+# - Lee comandos de ThingSpeak para ESTACIÓN 2.
+# - Lee comandos de ThingSpeak para ESTACIÓN 3.
+# - Recibe datos del esclavo ESTACIÓN 2 por ESP-NOW.
+# - Recibe datos del esclavo ESTACIÓN 3 por ESP-NOW.
+# - Envía comandos a los esclavos por ESP-NOW.
+# - Publica datos de ESTACIÓN 1 en ThingSpeak canal 3407423.
+# - Publica datos de ESTACIÓN 2 en ThingSpeak canal 3422001.
+# - Publica datos de ESTACIÓN 3 en ThingSpeak canal 3423386.
+# - Publica datos de las tres estaciones en Node-RED por MQTT.
+#
+# MEJORA PRINCIPAL:
+# - MQTT / Node-RED se actualiza rápido cada 1 segundo.
+# - ThingSpeak queda como histórico cada 30 segundos.
+# - Temperatura y humedad no se borran si hay una lectura fallida.
+# - Estado ON/OFF se refleja rápidamente por MQTT.
+#
+# CANAL ESTACIÓN 1:
+# field1 = temperatura
+# field2 = humedad
+# field3 = calefactor
+# field4 = modo automatico
+# field5 = modo manual
+#
+# CANAL ESTACIÓN 2:
+# field1 = temperatura
+# field2 = humedad
+# field3 = calefactor
+# field4 = modo automatico
+# field5 = modo manual
+#
+# CANAL ESTACIÓN 3:
+# field1 = temperatura
+# field2 = humedad
+# field3 = calefactor
+# field4 = modo automatico
+# field5 = modo manual
+# ==========================================================
+
+import M5
+from M5 import *
+from m5espnow import *
+import time
+import dht
+from machine import Pin
+import ubinascii
+import ustruct
+import network
+
+try:
+    import urequests as requests
+except:
+    import requests
+
+try:
+    import ujson as json
+except:
+    import json
+
+from umqtt.simple import MQTTClient
+
+
+# ==========================================================
+# 1. INICIALIZACION GENERAL
+# ==========================================================
+
+M5.begin()
+
+# ==========================================================
+# 2. INICIALIZACION WIFI
+# ==========================================================
+# No se coloca SSID ni password.
+# UIFlow configura previamente la red WiFi.
+
+wifi = network.WLAN(network.STA_IF)
+wifi.active(True)
+time.sleep(1)
+
+print("WiFi activo:", wifi.active())
+print("WiFi conectado:", wifi.isconnected())
+
+
+# ==========================================================
+# 3. CONFIGURACION ESP-NOW
+# ==========================================================
+
+ESCLAVO2_MAC = "4827E27908C0"
+ESCLAVO3_MAC = "34B7DA573C70"
+
+# El canal debe coincidir con el canal usado por los esclavos.
+# Si los esclavos usan M5ESPNow(0), el maestro también debe usar 0.
+espnow = M5ESPNow(0)
+espnow.set_add_peer(ESCLAVO2_MAC, 1, 0, False)
+espnow.set_add_peer(ESCLAVO3_MAC, 2, 0, False)
+
+
+# ==========================================================
+# 4. THINGSPEAK ESTACIÓN 1 - MAESTRO
+# ==========================================================
+
+THINGSPEAK_CHANNEL_ID_O1 = "3407423"
+THINGSPEAK_READ_API_KEY_O1 = "QQINDGA87SSOTIWW"
+THINGSPEAK_WRITE_API_KEY_O1 = "3YMMG9LFR8M2JJ7T"
+
+
+# ==========================================================
+# 5. THINGSPEAK ESTACIÓN 2 - ESCLAVO
+# ==========================================================
+
+THINGSPEAK_CHANNEL_ID_O2 = "3422001"
+THINGSPEAK_READ_API_KEY_O2 = "H0YG2LNXL3ULK1F1"
+THINGSPEAK_WRITE_API_KEY_O2 = "PV30NOUSZWQWKZOY"
+
+
+# ==========================================================
+# 6. THINGSPEAK ESTACIÓN 3 - ESCLAVO
+# ==========================================================
+
+THINGSPEAK_CHANNEL_ID_O3 = "3423386"
+THINGSPEAK_READ_API_KEY_O3 = "SBHZ9PXISHQ8JL2Z"
+THINGSPEAK_WRITE_API_KEY_O3 = "0P15CT6W6BR2550L"
+
+
+# ==========================================================
+# 7. MQTT NODE-RED
+# ==========================================================
+
+MQTT_BROKER = "broker.hivemq.com"
+MQTT_CLIENT_ID = "atoms3_maestro_estacion1"
+
+# Comandos hacia ESTACIÓN 1.
+TOPIC_MODO_AUTO_O1 = b"atoms3/estacion1/calefactor/modo_auto"
+TOPIC_MANUAL_O1 = b"atoms3/estacion1/calefactor/manual"
+
+# Comandos hacia ESTACIÓN 2.
+# El maestro recibe estos tópicos y reenvía el comando al esclavo por ESP-NOW.
+TOPIC_MODO_AUTO_O2 = b"atoms3/estacion2/calefactor/modo_auto"
+TOPIC_MANUAL_O2 = b"atoms3/estacion2/calefactor/manual"
+
+# Comandos hacia ESTACIÓN 3.
+# El maestro recibe estos tópicos y reenvía el comando al esclavo por ESP-NOW.
+TOPIC_MODO_AUTO_O3 = b"atoms3/estacion3/calefactor/modo_auto"
+TOPIC_MANUAL_O3 = b"atoms3/estacion3/calefactor/manual"
+
+# Publicación de ESTACIÓN 1.
+TOPIC_O1_TEMP = b"atoms3/estacion1/temperatura"
+TOPIC_O1_HUM = b"atoms3/estacion1/humedad"
+TOPIC_O1_CALEFACTOR = b"atoms3/estacion1/calefactor"
+TOPIC_O1_MODO_AUTO = b"atoms3/estacion1/modo_auto"
+TOPIC_O1_MANUAL = b"atoms3/estacion1/manual"
+
+# Publicación de ESTACIÓN 2.
+TOPIC_O2_TEMP = b"atoms3/estacion2/temperatura"
+TOPIC_O2_HUM = b"atoms3/estacion2/humedad"
+TOPIC_O2_CALEFACTOR = b"atoms3/estacion2/calefactor"
+TOPIC_O2_MODO_AUTO = b"atoms3/estacion2/modo_auto"
+TOPIC_O2_MANUAL = b"atoms3/estacion2/manual"
+
+# Publicación de ESTACIÓN 3.
+TOPIC_O3_TEMP = b"atoms3/estacion3/temperatura"
+TOPIC_O3_HUM = b"atoms3/estacion3/humedad"
+TOPIC_O3_CALEFACTOR = b"atoms3/estacion3/calefactor"
+TOPIC_O3_MODO_AUTO = b"atoms3/estacion3/modo_auto"
+TOPIC_O3_MANUAL = b"atoms3/estacion3/manual"
+
+
+# ==========================================================
+# 7. PINES ESTACIÓN 1
+# ==========================================================
+
+DHT_PIN = 1
+LED_PIN = 5
+RELE_PIN = 6
+
+sensor = dht.DHT22(Pin(DHT_PIN, Pin.IN, Pin.PULL_UP))
+led = Pin(LED_PIN, Pin.OUT)
+rele = Pin(RELE_PIN, Pin.OUT)
+
+led.value(0)
+rele.value(0)
+
+# ==========================================================
+# 8. PARAMETROS DE CONTROL
+# ==========================================================
+
+TEMP_ENCENDIDO = 25.0
+TEMP_APAGADO = 40.0
+
+# MQTT se usa para visualización rápida.
+INTERVALO_NODERED = 1
+
+# ThingSpeak se usa como histórico.
+INTERVALO_THINGSPEAK = 30
+
+# Comandos al esclavo deben enviarse rápido.
+INTERVALO_COMANDO_ESCLAVO = 1
+
+# Lectura DHT local.
+INTERVALO_SENSOR_O1 = 2
+
+# Lectura de comandos desde ThingSpeak.
+INTERVALO_COMANDOS_TS = 10
+
+# Retardo principal del loop.
+INTERVALO_LOOP = 0.5
+
+
+# ==========================================================
+# 9. VARIABLES ESTACIÓN 1
+# ==========================================================
+
+temperatura1 = None
+humedad1 = None
+estado_calefactor1 = 0
+modo_auto1 = 0
+estado_manual1 = 0
+datos_estacion1_validos = False
+
+
+# ==========================================================
+# 10. VARIABLES ESTACIÓN 2
+# ==========================================================
+
+temperatura2 = None
+humedad2 = None
+estado_calefactor2 = 0
+modo_auto2 = 0
+estado_manual2 = 0
+datos_estacion2_validos = False
+
+# Comandos que el maestro enviará al esclavo 2.
+comando_auto2 = 0
+comando_manual2 = 0
+
+
+# ==========================================================
+# 11. VARIABLES ESTACIÓN 3
+# ==========================================================
+
+temperatura3 = None
+humedad3 = None
+estado_calefactor3 = 0
+modo_auto3 = 0
+estado_manual3 = 0
+datos_estacion3_validos = False
+
+# Comandos que el maestro enviará al esclavo 3.
+comando_auto3 = 0
+comando_manual3 = 0
+
+
+# ==========================================================
+# 12. TEMPORIZADORES
+# ==========================================================
+
+ultimo_envio_nodered = 0
+ultimo_envio_thingspeak = 0
+ultimo_comando_esclavo = 0
+ultima_lectura_sensor_o1 = 0
+ultima_lectura_comandos_ts = 0
+ultimo_intento_mqtt = 0
+
+
+# ==========================================================
+# 13. FUNCIONES AUXILIARES
+# ==========================================================
+
+def mac_string(mac):
+    mac_hex = ubinascii.hexlify(mac).decode().upper()
+    return ":".join(mac_hex[i:i+2] for i in range(0, len(mac_hex), 2))
+
+
+def valor_texto(valor):
+    if valor is None:
+        return "--"
+    return str(valor)
+
+
+def validar_temperatura_humedad(temp, hum):
+    if temp is None or hum is None:
+        return False
+    if temp > -10 and temp < 80 and hum >= 0 and hum <= 100:
+        return True
+    return False
+
+
+print("MAC del maestro Estación 1:")
+print(mac_string(espnow.get_mac(0)))
+
+
+# ==========================================================
+# 14. RECEPCION ESP-NOW DESDE ESTACIONES 2 Y 3
+# ==========================================================
+# El esclavo envía 5 enteros:
+# temp2_int, hum2_int, calefactor2, auto2, manual2
+#
+# Temperatura y humedad llegan multiplicadas por 100.
+# Paquete esperado: 20 bytes.
+
+def recibir_espnow(espnow_obj):
+    global temperatura2
+    global humedad2
+    global estado_calefactor2
+    global modo_auto2
+    global estado_manual2
+    global datos_estacion2_validos
+
+    global temperatura3
+    global humedad3
+    global estado_calefactor3
+    global modo_auto3
+    global estado_manual3
+    global datos_estacion3_validos
+
+    try:
+        mac, dato = espnow_obj.recv_data()
+        mac_recibida = ubinascii.hexlify(mac).decode().upper()
+
+        if isinstance(dato, bytes) and len(dato) == 20:
+
+            temp_int, hum_int, calefactor, auto, manual = ustruct.unpack(
+                "<iiiii",
+                dato
+            )
+
+            temp_recibida = temp_int / 100
+            hum_recibida = hum_int / 100
+
+            if mac_recibida == ESCLAVO2_MAC:
+
+                estado_calefactor2 = calefactor
+                modo_auto2 = auto
+                estado_manual2 = manual
+
+                if validar_temperatura_humedad(temp_recibida, hum_recibida):
+                    temperatura2 = temp_recibida
+                    humedad2 = hum_recibida
+                    datos_estacion2_validos = True
+                else:
+                    print("ESP-NOW Estación 2: lectura fuera de rango")
+                    datos_estacion2_validos = False
+
+                print("ESP-NOW Estación 2 recibido")
+                print("Temperatura Estación 2:", temperatura2)
+                print("Humedad Estación 2:", humedad2)
+                print("Calefactor Estación 2:", estado_calefactor2)
+                print("Auto Estación 2:", modo_auto2)
+                print("Manual Estación 2:", estado_manual2)
+
+            elif mac_recibida == ESCLAVO3_MAC:
+
+                estado_calefactor3 = calefactor
+                modo_auto3 = auto
+                estado_manual3 = manual
+
+                if validar_temperatura_humedad(temp_recibida, hum_recibida):
+                    temperatura3 = temp_recibida
+                    humedad3 = hum_recibida
+                    datos_estacion3_validos = True
+                else:
+                    print("ESP-NOW Estación 3: lectura fuera de rango")
+                    datos_estacion3_validos = False
+
+                print("ESP-NOW Estación 3 recibido")
+                print("Temperatura Estación 3:", temperatura3)
+                print("Humedad Estación 3:", humedad3)
+                print("Calefactor Estación 3:", estado_calefactor3)
+                print("Auto Estación 3:", modo_auto3)
+                print("Manual Estación 3:", estado_manual3)
+
+            else:
+                print("ESP-NOW recibido desde MAC no registrada:", mac_string(mac))
+
+        else:
+            print("Paquete ESP-NOW no valido:", dato)
+
+    except Exception as e:
+        print("Error recibiendo ESP-NOW:", e)
+
+
+espnow.set_irq_callback(recibir_espnow)
+
+
+# ==========================================================
+# 15. ENVIO DE COMANDOS A LOS ESCLAVOS POR ESP-NOW
+# ==========================================================
+# Se envían 2 enteros:
+# auto2, manual2
+#
+# auto2 = 1, manual2 = 0  -> automatico
+# auto2 = 0, manual2 = 1  -> manual ON
+# auto2 = 0, manual2 = 0  -> apagado
+
+def enviar_comando_esclavo2(auto2, manual2):
+    paquete = ustruct.pack("<ii", auto2, manual2)
+
+    try:
+        espnow.send_data(1, paquete)
+        print("Comando enviado a Estación 2:", auto2, manual2)
+
+    except Exception as e:
+        print("Error enviando comando al esclavo Estación 2:", e)
+
+
+def enviar_comando_esclavo3(auto3, manual3):
+    paquete = ustruct.pack("<ii", auto3, manual3)
+
+    try:
+        espnow.send_data(2, paquete)
+        print("Comando enviado a Estación 3:", auto3, manual3)
+
+    except Exception as e:
+        print("Error enviando comando al esclavo Estación 3:", e)
+
+
+# ==========================================================
+# 16. MQTT CALLBACK NODE-RED
+# ==========================================================
+
+def mqtt_callback(topic, msg):
+    global modo_auto1
+    global estado_manual1
+    global comando_auto2
+    global comando_manual2
+    global comando_auto3
+    global comando_manual3
+
+    mensaje = msg.decode().strip()
+
+    print("MQTT recibido:", topic, mensaje)
+
+    # -------------------------
+    # Control ESTACIÓN 1
+    # -------------------------
+
+    if topic == TOPIC_MODO_AUTO_O1:
+        if mensaje == "1":
+            modo_auto1 = 1
+            estado_manual1 = 0
+            print("Node-RED Estación 1: AUTO ON")
+        else:
+            modo_auto1 = 0
+            print("Node-RED Estación 1: AUTO OFF")
+
+    elif topic == TOPIC_MANUAL_O1:
+        if mensaje == "1":
+            modo_auto1 = 0
+            estado_manual1 = 1
+            print("Node-RED Estación 1: MANUAL ON")
+        else:
+            estado_manual1 = 0
+            print("Node-RED Estación 1: MANUAL OFF")
+
+    # -------------------------
+    # Control ESTACIÓN 2
+    # -------------------------
+
+    elif topic == TOPIC_MODO_AUTO_O2:
+        if mensaje == "1":
+            comando_auto2 = 1
+            comando_manual2 = 0
+            print("Node-RED Estación 2: AUTO ON")
+        else:
+            comando_auto2 = 0
+            print("Node-RED Estación 2: AUTO OFF")
+
+    elif topic == TOPIC_MANUAL_O2:
+        if mensaje == "1":
+            comando_auto2 = 0
+            comando_manual2 = 1
+            print("Node-RED Estación 2: MANUAL ON")
+        else:
+            comando_manual2 = 0
+            print("Node-RED Estación 2: MANUAL OFF")
+
+    # -------------------------
+    # Control ESTACIÓN 3
+    # -------------------------
+
+    elif topic == TOPIC_MODO_AUTO_O3:
+        if mensaje == "1":
+            comando_auto3 = 1
+            comando_manual3 = 0
+            print("Node-RED Estación 3: AUTO ON")
+        else:
+            comando_auto3 = 0
+            print("Node-RED Estación 3: AUTO OFF")
+
+    elif topic == TOPIC_MANUAL_O3:
+        if mensaje == "1":
+            comando_auto3 = 0
+            comando_manual3 = 1
+            print("Node-RED Estación 3: MANUAL ON")
+        else:
+            comando_manual3 = 0
+            print("Node-RED Estación 3: MANUAL OFF")
+
+
+# ==========================================================
+# 17. CONEXION MQTT
+# ==========================================================
+
+def conectar_mqtt():
+    try:
+        cliente = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER)
+
+        cliente.set_callback(mqtt_callback)
+        cliente.connect()
+
+        cliente.subscribe(TOPIC_MODO_AUTO_O1)
+        cliente.subscribe(TOPIC_MANUAL_O1)
+        cliente.subscribe(TOPIC_MODO_AUTO_O2)
+        cliente.subscribe(TOPIC_MANUAL_O2)
+        cliente.subscribe(TOPIC_MODO_AUTO_O3)
+        cliente.subscribe(TOPIC_MANUAL_O3)
+
+        print("MQTT conectado a HiveMQ")
+
+        return cliente
+
+    except Exception as e:
+        print("Error conectando MQTT:", e)
+        return None
+
+
+def verificar_mqtt(cliente):
+    global ultimo_intento_mqtt
+
+    if cliente is not None:
+        try:
+            cliente.check_msg()
+            return cliente
+        except Exception as e:
+            print("Error MQTT check_msg:", e)
+
+    tiempo_actual = time.time()
+
+    if tiempo_actual - ultimo_intento_mqtt >= 5:
+        ultimo_intento_mqtt = tiempo_actual
+        return conectar_mqtt()
+
+    return cliente
+
+
+# ==========================================================
+# 18. LECTURA DE COMANDOS THINGSPEAK ESTACIÓN 1
+# ==========================================================
+
+def leer_comandos_thingspeak_estacion1():
+    global modo_auto1
+    global estado_manual1
+
+    url = (
+        "http://api.thingspeak.com/channels/{}/feeds/last.json?api_key={}"
+    ).format(
+        THINGSPEAK_CHANNEL_ID_O1,
+        THINGSPEAK_READ_API_KEY_O1
+    )
+
+    try:
+        respuesta = requests.get(url)
+        texto = respuesta.text
+        respuesta.close()
+
+        datos = json.loads(texto)
+
+        field4 = datos.get("field4")
+        field5 = datos.get("field5")
+
+        valor_auto = modo_auto1
+        valor_manual = estado_manual1
+
+        if field4 is not None and field4 != "":
+            valor_auto = int(float(field4))
+
+        if field5 is not None and field5 != "":
+            valor_manual = int(float(field5))
+
+        if valor_auto == 1:
+            modo_auto1 = 1
+            estado_manual1 = 0
+            print("ThingSpeak Estación 1: AUTO")
+
+        elif valor_manual == 1:
+            modo_auto1 = 0
+            estado_manual1 = 1
+            print("ThingSpeak Estación 1: MANUAL ON")
+
+        else:
+            modo_auto1 = 0
+            estado_manual1 = 0
+            print("ThingSpeak Estación 1: APAGADO")
+
+    except Exception as e:
+        print("Error leyendo comandos ThingSpeak Estación 1:", e)
+
+
+# ==========================================================
+# 19. LECTURA DE COMANDOS THINGSPEAK ESTACIÓN 2
+# ==========================================================
+
+def leer_comandos_thingspeak_estacion2():
+    global comando_auto2
+    global comando_manual2
+    global comando_auto3
+    global comando_manual3
+
+    url = (
+        "http://api.thingspeak.com/channels/{}/feeds/last.json?api_key={}"
+    ).format(
+        THINGSPEAK_CHANNEL_ID_O2,
+        THINGSPEAK_READ_API_KEY_O2
+    )
+
+    try:
+        respuesta = requests.get(url)
+        texto = respuesta.text
+        respuesta.close()
+
+        datos = json.loads(texto)
+
+        field4 = datos.get("field4")
+        field5 = datos.get("field5")
+
+        valor_auto = comando_auto2
+        valor_manual = comando_manual2
+
+        if field4 is not None and field4 != "":
+            valor_auto = int(float(field4))
+
+        if field5 is not None and field5 != "":
+            valor_manual = int(float(field5))
+
+        if valor_auto == 1:
+            comando_auto2 = 1
+            comando_manual2 = 0
+            print("ThingSpeak Estación 2: AUTO")
+
+        elif valor_manual == 1:
+            comando_auto2 = 0
+            comando_manual2 = 1
+            print("ThingSpeak Estación 2: MANUAL ON")
+
+        else:
+            comando_auto2 = 0
+            comando_manual2 = 0
+            print("ThingSpeak Estación 2: APAGADO")
+
+    except Exception as e:
+        print("Error leyendo comandos ThingSpeak Estación 2:", e)
+
+
+# ==========================================================
+# 20. LECTURA DE COMANDOS THINGSPEAK ESTACIÓN 3
+# ==========================================================
+
+def leer_comandos_thingspeak_estacion3():
+    global comando_auto3
+    global comando_manual3
+
+    url = (
+        "http://api.thingspeak.com/channels/{}/feeds/last.json?api_key={}"
+    ).format(
+        THINGSPEAK_CHANNEL_ID_O3,
+        THINGSPEAK_READ_API_KEY_O3
+    )
+
+    try:
+        respuesta = requests.get(url)
+        texto = respuesta.text
+        respuesta.close()
+
+        datos = json.loads(texto)
+
+        field4 = datos.get("field4")
+        field5 = datos.get("field5")
+
+        valor_auto = comando_auto3
+        valor_manual = comando_manual3
+
+        if field4 is not None and field4 != "":
+            valor_auto = int(float(field4))
+
+        if field5 is not None and field5 != "":
+            valor_manual = int(float(field5))
+
+        if valor_auto == 1:
+            comando_auto3 = 1
+            comando_manual3 = 0
+            print("ThingSpeak Estación 3: AUTO")
+
+        elif valor_manual == 1:
+            comando_auto3 = 0
+            comando_manual3 = 1
+            print("ThingSpeak Estación 3: MANUAL ON")
+
+        else:
+            comando_auto3 = 0
+            comando_manual3 = 0
+            print("ThingSpeak Estación 3: APAGADO")
+
+    except Exception as e:
+        print("Error leyendo comandos ThingSpeak Estación 3:", e)
+
+
+# ==========================================================
+# 21. LECTURA SENSOR ESTACIÓN 1
+# ==========================================================
+
+def leer_sensor_estacion1():
+    global temperatura1
+    global humedad1
+    global datos_estacion1_validos
+
+    try:
+        sensor.measure()
+
+        temp = sensor.temperature()
+        hum = sensor.humidity()
+
+        if validar_temperatura_humedad(temp, hum):
+            temperatura1 = temp
+            humedad1 = hum
+            datos_estacion1_validos = True
+            print("Sensor Estación 1:", temperatura1, humedad1)
+        else:
+            print("Sensor Estación 1 fuera de rango")
+            # No borrar valores anteriores.
+            datos_estacion1_validos = False
+
+    except Exception as e:
+        print("Error leyendo sensor Estación 1:", e)
+        # No borrar valores anteriores.
+        datos_estacion1_validos = False
+
+
+# ==========================================================
+# 22. CONTROL CALEFACTOR ESTACIÓN 1
+# ==========================================================
+
+def aplicar_salida_estacion1(estado):
+    global estado_calefactor1
+
+    estado_calefactor1 = estado
+    led.value(estado_calefactor1)
+    rele.value(estado_calefactor1)
+
+    if estado_calefactor1 == 1:
+        print("Calefactor Estación 1: ENCENDIDO")
+    else:
+        print("Calefactor Estación 1: APAGADO")
+
+
+def controlar_estacion1():
+    global estado_calefactor1
+
+    if temperatura1 is None:
+        print("No hay temperatura Estación 1 valida para controlar")
+        aplicar_salida_estacion1(0)
+        return estado_calefactor1
+
+    if modo_auto1 == 1:
+
+        print("Control automatico Estación 1")
+
+        if estado_calefactor1 == 0 and temperatura1 <= TEMP_ENCENDIDO:
+            aplicar_salida_estacion1(1)
+
+        elif estado_calefactor1 == 1 and temperatura1 >= TEMP_APAGADO:
+            aplicar_salida_estacion1(0)
+
+        else:
+            aplicar_salida_estacion1(estado_calefactor1)
+
+    elif estado_manual1 == 1:
+
+        print("Control manual Estación 1")
+        aplicar_salida_estacion1(1)
+
+    else:
+
+        print("Estación 1 sin modo activo")
+        aplicar_salida_estacion1(0)
+
+    return estado_calefactor1
+
+
+# ==========================================================
+# 23. PUBLICACION NODE-RED
+# ==========================================================
+# Esta publicación es rápida. El objetivo es visualización inmediata.
+
+def publicar_nodered(cliente):
+
+    if cliente is None:
+        print("MQTT no disponible. No se publica en Node-RED.")
+        return
+
+    try:
+        cliente.publish(TOPIC_O1_TEMP, valor_texto(temperatura1))
+        cliente.publish(TOPIC_O1_HUM, valor_texto(humedad1))
+        cliente.publish(TOPIC_O1_CALEFACTOR, str(estado_calefactor1))
+        cliente.publish(TOPIC_O1_MODO_AUTO, str(modo_auto1))
+        cliente.publish(TOPIC_O1_MANUAL, str(estado_manual1))
+
+        cliente.publish(TOPIC_O2_TEMP, valor_texto(temperatura2))
+        cliente.publish(TOPIC_O2_HUM, valor_texto(humedad2))
+        cliente.publish(TOPIC_O2_CALEFACTOR, str(estado_calefactor2))
+        cliente.publish(TOPIC_O2_MODO_AUTO, str(comando_auto2))
+        cliente.publish(TOPIC_O2_MANUAL, str(comando_manual2))
+
+        cliente.publish(TOPIC_O3_TEMP, valor_texto(temperatura3))
+        cliente.publish(TOPIC_O3_HUM, valor_texto(humedad3))
+        cliente.publish(TOPIC_O3_CALEFACTOR, str(estado_calefactor3))
+        cliente.publish(TOPIC_O3_MODO_AUTO, str(comando_auto3))
+        cliente.publish(TOPIC_O3_MANUAL, str(comando_manual3))
+
+        print("MQTT Node-RED actualizado")
+
+    except Exception as e:
+        print("Error publicando en Node-RED:", e)
+
+
+# ==========================================================
+# 24. PUBLICACION THINGSPEAK ESTACIÓN 1
+# ==========================================================
+# ThingSpeak se usa como histórico y se publica cada 30 s.
+# Si la lectura del DHT falla, no se borran los datos previos.
+
+def publicar_thingspeak_estacion1():
+
+    if temperatura1 is None or humedad1 is None:
+        print("No se publica Estación 1 en ThingSpeak: sin datos validos")
+        return
+
+    url = (
+        "http://api.thingspeak.com/update"
+        "?api_key={}"
+        "&field1={}"
+        "&field2={}"
+        "&field3={}"
+        "&field4={}"
+        "&field5={}"
+    ).format(
+        THINGSPEAK_WRITE_API_KEY_O1,
+        temperatura1,
+        humedad1,
+        estado_calefactor1,
+        modo_auto1,
+        estado_manual1
+    )
+
+    try:
+        respuesta = requests.get(url)
+        codigo = respuesta.text
+        respuesta.close()
+
+        print("ThingSpeak Estación 1:", codigo)
+
+    except Exception as e:
+        print("Error enviando ThingSpeak Estación 1:", e)
+
+
+# ==========================================================
+# 25. PUBLICACION THINGSPEAK ESTACIÓN 2
+# ==========================================================
+# Solo se publica si ya se recibió al menos un paquete válido
+# desde el esclavo por ESP-NOW.
+
+def publicar_thingspeak_estacion2():
+
+    if temperatura2 is None or humedad2 is None or datos_estacion2_validos == False:
+        print("No se publica Estación 2 en ThingSpeak: sin datos validos ESP-NOW")
+        return
+
+    url = (
+        "http://api.thingspeak.com/update"
+        "?api_key={}"
+        "&field1={}"
+        "&field2={}"
+        "&field3={}"
+        "&field4={}"
+        "&field5={}"
+    ).format(
+        THINGSPEAK_WRITE_API_KEY_O2,
+        temperatura2,
+        humedad2,
+        estado_calefactor2,
+        comando_auto2,
+        comando_manual2
+    )
+
+    try:
+        respuesta = requests.get(url)
+        codigo = respuesta.text
+        respuesta.close()
+
+        print("ThingSpeak Estación 2:", codigo)
+
+    except Exception as e:
+        print("Error enviando ThingSpeak Estación 2:", e)
+
+
+# ==========================================================
+# 26. PUBLICACION THINGSPEAK ESTACIÓN 3
+# ==========================================================
+# Solo se publica si ya se recibió al menos un paquete válido
+# desde el esclavo por ESP-NOW.
+
+def publicar_thingspeak_estacion3():
+
+    if temperatura3 is None or humedad3 is None or datos_estacion3_validos == False:
+        print("No se publica Estación 3 en ThingSpeak: sin datos validos ESP-NOW")
+        return
+
+    url = (
+        "http://api.thingspeak.com/update"
+        "?api_key={}"
+        "&field1={}"
+        "&field2={}"
+        "&field3={}"
+        "&field4={}"
+        "&field5={}"
+    ).format(
+        THINGSPEAK_WRITE_API_KEY_O3,
+        temperatura3,
+        humedad3,
+        estado_calefactor3,
+        comando_auto3,
+        comando_manual3
+    )
+
+    try:
+        respuesta = requests.get(url)
+        codigo = respuesta.text
+        respuesta.close()
+
+        print("ThingSpeak Estación 3:", codigo)
+
+    except Exception as e:
+        print("Error enviando ThingSpeak Estación 3:", e)
+
+
+# ==========================================================
+# 27. MONITOR SERIAL
+# ==========================================================
+
+def imprimir_estado():
+    print()
+    print("================================")
+    print("ESTACIÓN 1 - MAESTRO")
+    print("Temperatura Estación 1:", temperatura1, "C")
+    print("Humedad Estación 1:", humedad1, "%")
+    print("Calefactor Estación 1:", estado_calefactor1)
+    print("Modo auto Estación 1:", modo_auto1)
+    print("Manual Estación 1:", estado_manual1)
+
+    print("--------------------------------")
+    print("ESTACIÓN 2 - ESCLAVO")
+    print("Temperatura Estación 2:", temperatura2, "C")
+    print("Humedad Estación 2:", humedad2, "%")
+    print("Calefactor Estación 2:", estado_calefactor2)
+    print("Modo auto recibido Estación 2:", modo_auto2)
+    print("Manual recibido Estación 2:", estado_manual2)
+    print("Comando auto enviado Estación 2:", comando_auto2)
+    print("Comando manual enviado Estación 2:", comando_manual2)
+    print("Datos Estación 2 validos:", datos_estacion2_validos)
+
+    print("--------------------------------")
+    print("ESTACIÓN 3 - ESCLAVO")
+    print("Temperatura Estación 3:", temperatura3, "C")
+    print("Humedad Estación 3:", humedad3, "%")
+    print("Calefactor Estación 3:", estado_calefactor3)
+    print("Modo auto recibido Estación 3:", modo_auto3)
+    print("Manual recibido Estación 3:", estado_manual3)
+    print("Comando auto enviado Estación 3:", comando_auto3)
+    print("Comando manual enviado Estación 3:", comando_manual3)
+    print("Datos Estación 3 validos:", datos_estacion3_validos)
+
+
+# ==========================================================
+# 28. INICIO MQTT
+# ==========================================================
+
+cliente_mqtt = conectar_mqtt()
+
+
+# ==========================================================
+# 29. BUCLE PRINCIPAL
+# ==========================================================
+
+while True:
+
+    try:
+        M5.update()
+
+        tiempo_actual = time.time()
+
+        # ------------------------------------------
+        # MQTT CHECK + RECONEXION
+        # ------------------------------------------
+
+        cliente_mqtt = verificar_mqtt(cliente_mqtt)
+
+        # ------------------------------------------
+        # LECTURA DE COMANDOS THINGSPEAK
+        # ------------------------------------------
+
+        if tiempo_actual - ultima_lectura_comandos_ts >= INTERVALO_COMANDOS_TS:
+            #leer_comandos_thingspeak_estacion1()
+            #leer_comandos_thingspeak_estacion2()
+            #leer_comandos_thingspeak_estacion3()
+            ultima_lectura_comandos_ts = tiempo_actual
+
+        # ------------------------------------------
+        # ENVIO RAPIDO DE COMANDO AL ESCLAVO
+        # ------------------------------------------
+
+        if tiempo_actual - ultimo_comando_esclavo >= INTERVALO_COMANDO_ESCLAVO:
+            enviar_comando_esclavo2(comando_auto2, comando_manual2)
+            enviar_comando_esclavo3(comando_auto3, comando_manual3)
+            ultimo_comando_esclavo = tiempo_actual
+
+        # ------------------------------------------
+        # LECTURA CONTINUA SENSOR ESTACIÓN 1
+        # ------------------------------------------
+
+        if tiempo_actual - ultima_lectura_sensor_o1 >= INTERVALO_SENSOR_O1:
+            leer_sensor_estacion1()
+            ultima_lectura_sensor_o1 = tiempo_actual
+
+        # ------------------------------------------
+        # CONTROL LOCAL ESTACIÓN 1
+        # ------------------------------------------
+
+        controlar_estacion1()
+
+        # ------------------------------------------
+        # PUBLICACION RAPIDA A NODE-RED
+        # ------------------------------------------
+
+        if tiempo_actual - ultimo_envio_nodered >= INTERVALO_NODERED:
+            publicar_nodered(cliente_mqtt)
+            ultimo_envio_nodered = tiempo_actual
+
+        # ------------------------------------------
+        # PUBLICACION HISTORICA A THINGSPEAK
+        # ------------------------------------------
+
+        if tiempo_actual - ultimo_envio_thingspeak >= INTERVALO_THINGSPEAK:
+            publicar_thingspeak_estacion1()
+            publicar_thingspeak_estacion2()
+            publicar_thingspeak_estacion3()
+            ultimo_envio_thingspeak = tiempo_actual
+
+        imprimir_estado()
+
+    except Exception as e:
+
+        print("Error general maestro:", e)
+
+        led.value(0)
+        rele.value(0)
+        estado_calefactor1 = 0
+
+    time.sleep(INTERVALO_LOOP)

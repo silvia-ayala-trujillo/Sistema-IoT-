@@ -1,0 +1,453 @@
+%ESTACIÓN 1 - SISTEMA INTELIGENTE DE MONITOREO ERGONÓMICO TÉRMICO 
+%============================================================
+% ANALISIS DIFUSO DE ERGONOMIA TERMICA SIN FUZZY LOGIC TOOLBOX
+% ThingSpeak + MATLAB Analysis + Alerta por correo
+% ============================================================
+
+% ---------------- CONFIGURACION DEL CANAL ----------------
+readChannelID = 3407423;    % Cambia por tu Channel ID
+temperatureField = 1;       % field1 = Temperatura en °C
+humidityField = 2;          % field2 = Humedad relativa en %
+
+numPoints = 36;             % Datos historicos para tendencia/exposicion
+samplePeriodMin = 5;        % Ajusta segun tu frecuencia real de muestreo
+
+% ---------------- CONFIGURACION DE ALERTA ----------------
+alertApiKey = "TAKO5D4jQEo0nmim9Xh";
+alertUrl = "https://api.thingspeak.com/alerts/send";
+
+% 0 = enviar siempre
+% 1 = vigilancia o superior
+% 2 = precaucion o superior
+% 3 = alto o superior
+% 4 = critico solamente
+minimumRiskLevelToSend = 2;
+
+% ---------------- SUPUESTOS ERGONOMICOS ----------------
+% Estos valores se usan para PMV/PPD estimado.
+% Para laboratorio/oficina liviana:
+met = 1.2;        % Actividad metabolica: 1.2 met = actividad ligera
+clo = 0.6;        % Ropa: 0.5-0.7 clo aprox.
+airSpeed = 0.10;  % m/s, supuesto si no hay anemometro
+trOffset = 0;     % Temperatura radiante media aprox. = T + trOffset
+
+% ---------------- LECTURA DE DATOS ----------------
+data = thingSpeakRead(readChannelID, ...
+    'Fields',[temperatureField humidityField], ...
+    'NumPoints',numPoints, ...
+    'OutputFormat','matrix');
+
+% Eliminar filas con NaN
+data = data(all(~isnan(data),2),:);
+
+if isempty(data)
+    fprintf("No existen datos validos para analizar.\n");
+    return;
+end
+
+n = size(data,1);
+
+% Ultima lectura valida
+T = data(end,1);   % Temperatura del aire en °C
+H = data(end,2);   % Humedad relativa en %
+
+% Limitar humedad a rango fisico
+H = max(1,min(100,H));
+
+% ---------------- METRICAS DE ERGONOMIA TERMICA ----------------
+heatIndexC = heatIndexC_local(T,H);        % Sensacion termica por T/H
+dewPointC = dewPointC_local(T,H);          % Punto de rocio
+wetBulbC = wetBulbC_local(T,H);            % Bulbo humedo estimado
+wbgtEstC = 0.7*wetBulbC + 0.3*T;           % WBGT estimado interior sin sol
+discomfortIndex = T - (0.55 - 0.0055*H)*(T - 14.5);
+
+vaporPressure_hPa = vaporPressure_local(T,H);
+absoluteHumidity = absoluteHumidity_local(T,H);
+
+tr = T + trOffset;
+[pmvEst, ppdEst] = pmv_ppd_local(T,tr,airSpeed,H,met,clo);
+
+% ---------------- TENDENCIA Y EXPOSICION ----------------
+if n >= 6
+    T_prev = mean(data(n-5:n-1,1));
+    H_prev = mean(data(n-5:n-1,2));
+else
+    T_prev = T;
+    H_prev = H;
+end
+
+dT = T - T_prev;
+dH = H - H_prev;
+
+HI_series = zeros(n,1);
+WBGT_series = zeros(n,1);
+
+for i = 1:n
+    Ti = data(i,1);
+    Hi = max(1,min(100,data(i,2)));
+
+    HI_series(i) = heatIndexC_local(Ti,Hi);
+    Twi = wetBulbC_local(Ti,Hi);
+    WBGT_series(i) = 0.7*Twi + 0.3*Ti;
+end
+
+% Exposicion reciente a condiciones termicas incomodas
+hotExposureFraction = mean((HI_series >= 27) | (WBGT_series >= 25));
+hotExposureMin = hotExposureFraction * n * samplePeriodMin;
+
+if n >= 6
+    heatIndexPrev = mean(HI_series(n-5:n-1));
+    dHI = heatIndexC - heatIndexPrev;
+else
+    dHI = 0;
+end
+
+% ============================================================
+% LOGICA DIFUSA
+% ============================================================
+
+% ---------------- PERTENENCIAS: HEAT INDEX ----------------
+hiNormal   = trapmf_local(heatIndexC,[10 10 24 27]);
+hiCaution  = trimf_local(heatIndexC,[25 29 32]);
+hiHigh     = trimf_local(heatIndexC,[30 35 40]);
+hiCritical = trapmf_local(heatIndexC,[38 42 55 55]);
+
+% ---------------- PERTENENCIAS: WBGT ESTIMADO ----------------
+wbgtLow      = trapmf_local(wbgtEstC,[10 10 22 25]);
+wbgtModerate = trimf_local(wbgtEstC,[24 26.5 28.5]);
+wbgtHigh     = trimf_local(wbgtEstC,[27.5 30 32]);
+wbgtCritical = trapmf_local(wbgtEstC,[31 33 45 45]);
+
+% ---------------- PERTENENCIAS: PUNTO DE ROCIO ----------------
+dewComfort    = trapmf_local(dewPointC,[0 0 12 17]);
+dewHumid      = trimf_local(dewPointC,[15 19 23]);
+dewOppressive = trapmf_local(dewPointC,[21 24 35 35]);
+
+% ---------------- PERTENENCIAS: INDICE DE DISCONFORT ----------------
+diComfort  = trapmf_local(discomfortIndex,[10 10 21 24]);
+diModerate = trimf_local(discomfortIndex,[23 25.5 27.5]);
+diHigh     = trimf_local(discomfortIndex,[26.5 28.5 30.5]);
+diCritical = trapmf_local(discomfortIndex,[29.5 31.5 40 40]);
+
+% ---------------- PERTENENCIAS: PMV/PPD ESTIMADO ----------------
+% PMV cercano a 0 = confort; PMV positivo = calor.
+pmvComfort = trapmf_local(abs(pmvEst),[0 0 0.3 0.7]);
+pmvWarm    = trimf_local(pmvEst,[0.5 1.2 2.0]);
+pmvHot     = trapmf_local(pmvEst,[1.5 2.3 4 4]);
+
+ppdLow      = trapmf_local(ppdEst,[0 0 10 20]);
+ppdModerate = trimf_local(ppdEst,[15 30 45]);
+ppdHigh     = trapmf_local(ppdEst,[40 60 100 100]);
+
+% ---------------- PERTENENCIAS: TENDENCIA ----------------
+trendStable = trimf_local(dHI,[-0.6 0 0.6]);
+trendUp     = trapmf_local(dHI,[0.3 1 6 6]);
+
+% ---------------- PERTENENCIAS: EXPOSICION ----------------
+exposureLow  = trapmf_local(hotExposureFraction,[0 0 0.15 0.30]);
+exposureMed  = trimf_local(hotExposureFraction,[0.20 0.45 0.70]);
+exposureHigh = trapmf_local(hotExposureFraction,[0.60 0.80 1 1]);
+
+% ============================================================
+% REGLAS DIFUSAS
+% Riesgo:
+% 0 = Confortable
+% 1 = Vigilancia
+% 2 = Precaucion
+% 3 = Alto
+% 4 = Critico
+% ============================================================
+
+r1  = min([hiNormal, wbgtLow, diComfort, pmvComfort]);          % Confortable
+r2  = max([hiCaution, wbgtModerate, dewHumid, diModerate]);     % Vigilancia
+r3  = max([hiHigh, wbgtHigh, dewOppressive, diHigh, pmvWarm]);  % Precaucion
+r4  = max([hiCritical, wbgtCritical, diCritical, pmvHot]);      % Critico base
+
+% Reglas por exposicion acumulada
+r5  = min([hiCaution, exposureMed]);                            % Precaucion
+r6  = min([hiHigh, exposureMed]);                               % Alto
+r7  = min([hiHigh, exposureHigh]);                              % Critico
+
+% Reglas por tendencia ascendente
+r8  = min([hiCaution, trendUp]);                                % Precaucion
+r9  = min([wbgtHigh, trendUp]);                                 % Alto
+r10 = min([dewOppressive, trendUp]);                            % Alto
+
+% Reglas por disconfort termico estimado
+r11 = min([ppdModerate, pmvWarm]);                              % Precaucion
+r12 = min([ppdHigh, pmvHot]);                                   % Alto
+
+rules = [r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12];
+riskValues = [0 1 2 4 2 3 4 2 3 3 2 3];
+
+den = sum(rules);
+
+if den == 0
+    riskScore = 0;
+else
+    riskScore = sum(rules .* riskValues) / den;
+end
+
+% ---------------- CLASIFICACION FINAL ----------------
+if riskScore < 0.75
+    riskLevel = 0;
+    riskText = "CONFORTABLE";
+    recommendation = "Mantener monitoreo periodico. Condicion termica aceptable.";
+elseif riskScore < 1.5
+    riskLevel = 1;
+    riskText = "VIGILANCIA";
+    recommendation = "Verificar ventilacion, hidratacion y evolucion de la temperatura.";
+elseif riskScore < 2.5
+    riskLevel = 2;
+    riskText = "PRECAUCION";
+    recommendation = "Mejorar ventilacion, reducir exposicion y programar pausas.";
+elseif riskScore < 3.5
+    riskLevel = 3;
+    riskText = "ALTO";
+    recommendation = "Aplicar pausas, reducir carga fisica y activar enfriamiento.";
+else
+    riskLevel = 4;
+    riskText = "CRITICO";
+    recommendation = "Detener exposicion y aplicar medidas correctivas inmediatas.";
+end
+
+% ---------------- MOSTRAR RESULTADOS ----------------
+fprintf("Temperatura: %.2f C\n", T);
+fprintf("Humedad relativa: %.2f %%\n", H);
+fprintf("Heat Index: %.2f C\n", heatIndexC);
+fprintf("Punto de rocio: %.2f C\n", dewPointC);
+fprintf("Bulbo humedo estimado: %.2f C\n", wetBulbC);
+fprintf("WBGT estimado: %.2f C\n", wbgtEstC);
+fprintf("Indice de disconfort: %.2f\n", discomfortIndex);
+fprintf("Presion de vapor: %.2f hPa\n", vaporPressure_hPa);
+fprintf("Humedad absoluta: %.2f g/m3\n", absoluteHumidity);
+fprintf("PMV estimado: %.2f\n", pmvEst);
+fprintf("PPD estimado: %.2f %%\n", ppdEst);
+fprintf("Tendencia Heat Index: %.2f C\n", dHI);
+fprintf("Exposicion termica reciente: %.1f min\n", hotExposureMin);
+fprintf("Riesgo difuso: %.2f\n", riskScore);
+fprintf("Nivel: %s\n", riskText);
+fprintf("Recomendacion: %s\n", recommendation);
+
+% ---------------- ENVIO DE CORREO ----------------
+if riskLevel >= minimumRiskLevelToSend
+
+    options = weboptions( ...
+        "HeaderFields", ["ThingSpeak-Alerts-API-Key", alertApiKey]);
+
+    mailSubject = sprintf("Estres termico: %s", riskText);
+
+    % Mantener cuerpo corto por limite de ThingSpeak Alerts
+    mailBody = sprintf([ ...
+        "Analisis ergonomia termica\n" ...
+        "T=%.1f C, HR=%.0f %%\n" ...
+        "HI=%.1f C, WBGT est=%.1f C\n" ...
+        "Rocio=%.1f C, PMV=%.2f, PPD=%.0f %%\n" ...
+        "Exposicion=%.0f min\n" ...
+        "Nivel=%s\n" ...
+        "Recomendacion: %s"], ...
+        T, H, heatIndexC, wbgtEstC, dewPointC, ...
+        pmvEst, ppdEst, hotExposureMin, riskText, recommendation);
+
+    try
+        webwrite(alertUrl, ...
+            "body", mailBody, ...
+            "subject", mailSubject, ...
+            options);
+
+        fprintf("Correo de alerta enviado correctamente.\n");
+
+    catch ME
+        fprintf("No se pudo enviar el correo.\n");
+        fprintf("Error: %s\n", ME.message);
+    end
+
+else
+    fprintf("Nivel inferior al umbral de alerta. No se envio correo.\n");
+end
+
+% ============================================================
+% FUNCIONES LOCALES
+% ============================================================
+
+function y = trimf_local(x,p)
+    a = p(1);
+    b = p(2);
+    c = p(3);
+
+    if x <= a
+        y = 0;
+    elseif x == b
+        y = 1;
+    elseif x < b
+        y = (x-a)/(b-a);
+    elseif x < c
+        y = (c-x)/(c-b);
+    else
+        y = 0;
+    end
+
+    y = max(0,min(1,y));
+end
+
+function y = trapmf_local(x,p)
+    a = p(1);
+    b = p(2);
+    c = p(3);
+    d = p(4);
+
+    if x <= a
+        if a == b
+            y = 1;
+        else
+            y = 0;
+        end
+    elseif x < b
+        y = (x-a)/(b-a);
+    elseif x <= c
+        y = 1;
+    elseif x < d
+        y = (d-x)/(d-c);
+    else
+        if c == d
+            y = 1;
+        else
+            y = 0;
+        end
+    end
+
+    y = max(0,min(1,y));
+end
+
+function HIc = heatIndexC_local(Tc,RH)
+    % Formula NWS/Rothfusz en Fahrenheit y conversion a Celsius
+    Tf = Tc*9/5 + 32;
+    RH = max(1,min(100,RH));
+
+    HI_simple = 0.5 * (Tf + 61.0 + ((Tf - 68.0)*1.2) + (RH*0.094));
+
+    if HI_simple < 80
+        HIf = HI_simple;
+    else
+        HIf = -42.379 + 2.04901523*Tf + 10.14333127*RH ...
+            - 0.22475541*Tf*RH - 0.00683783*Tf^2 ...
+            - 0.05481717*RH^2 + 0.00122874*Tf^2*RH ...
+            + 0.00085282*Tf*RH^2 - 0.00000199*Tf^2*RH^2;
+
+        if RH < 13 && Tf >= 80 && Tf <= 112
+            adj = ((13 - RH)/4) * sqrt((17 - abs(Tf - 95))/17);
+            HIf = HIf - adj;
+        elseif RH > 85 && Tf >= 80 && Tf <= 87
+            adj = ((RH - 85)/10) * ((87 - Tf)/5);
+            HIf = HIf + adj;
+        end
+    end
+
+    HIc = (HIf - 32)*5/9;
+end
+
+function Td = dewPointC_local(T,RH)
+    % Aproximacion de Magnus
+    RH = max(1,min(100,RH));
+    a = 17.27;
+    b = 237.7;
+
+    gamma = (a*T)/(b + T) + log(RH/100);
+    Td = (b*gamma)/(a - gamma);
+end
+
+function Tw = wetBulbC_local(T,RH)
+    % Aproximacion de Stull para temperatura de bulbo humedo
+    RH = max(1,min(100,RH));
+
+    Tw = T*atan(0.151977*sqrt(RH + 8.313659)) ...
+        + atan(T + RH) ...
+        - atan(RH - 1.676331) ...
+        + 0.00391838*RH^(3/2)*atan(0.023101*RH) ...
+        - 4.686035;
+end
+
+function e = vaporPressure_local(T,RH)
+    % Presion parcial de vapor en hPa
+    RH = max(1,min(100,RH));
+    es = 6.112 * exp((17.67*T)/(T + 243.5));
+    e = (RH/100) * es;
+end
+
+function AH = absoluteHumidity_local(T,RH)
+    % Humedad absoluta en g/m3
+    e = vaporPressure_local(T,RH);
+    AH = 216.7 * (e/(T + 273.15));
+end
+
+function [pmv, ppd] = pmv_ppd_local(tdb,tr,vr,rh,met,clo)
+    % PMV/PPD estimado con supuestos de ambiente interior.
+    % tdb: temperatura aire C
+    % tr: temperatura radiante media C
+    % vr: velocidad aire m/s
+    % rh: humedad relativa %
+    % met: actividad metabolica
+    % clo: aislamiento ropa
+
+    rh = max(1,min(100,rh));
+    vr = max(0.01,vr);
+
+    pa = rh * 10 * exp(16.6536 - 4030.183/(tdb + 235));
+    icl = 0.155 * clo;
+    m = met * 58.15;
+    w = 0;
+    mw = m - w;
+
+    if icl <= 0.078
+        fcl = 1 + 1.29*icl;
+    else
+        fcl = 1.05 + 0.645*icl;
+    end
+
+    hcf = 12.1 * sqrt(vr);
+    taa = tdb + 273;
+    tra = tr + 273;
+
+    tcla = taa + (35.5 - tdb)/(3.5*(6.45*icl + 0.1));
+
+    p1 = icl * fcl;
+    p2 = p1 * 3.96;
+    p3 = p1 * 100;
+    p4 = p1 * taa;
+    p5 = 308.7 - 0.028*mw + p2*(tra/100)^4;
+
+    xn = tcla/100;
+    xf = xn;
+    eps = 0.00015;
+
+    for i = 1:150
+        xf = xn;
+        hcn = 2.38 * abs(100*xf - taa)^0.25;
+        hc = max(hcf,hcn);
+        xn = (p5 + p4*hc - p2*xf^4)/(100 + p3*hc);
+
+        if abs(xn - xf) <= eps
+            break;
+        end
+    end
+
+    tcl = 100*xn - 273;
+
+    hl1 = 3.05*0.001*(5733 - 6.99*mw - pa);
+
+    if mw > 58.15
+        hl2 = 0.42*(mw - 58.15);
+    else
+        hl2 = 0;
+    end
+
+    hl3 = 1.7*0.00001*m*(5867 - pa);
+    hl4 = 0.0014*m*(34 - tdb);
+    hl5 = 3.96*fcl*(xn^4 - (tra/100)^4);
+    hl6 = fcl*hc*(tcl - tdb);
+
+    ts = 0.303*exp(-0.036*m) + 0.028;
+
+    pmv = ts*(mw - hl1 - hl2 - hl3 - hl4 - hl5 - hl6);
+    ppd = 100 - 95*exp(-0.03353*pmv^4 - 0.2179*pmv^2);
+end

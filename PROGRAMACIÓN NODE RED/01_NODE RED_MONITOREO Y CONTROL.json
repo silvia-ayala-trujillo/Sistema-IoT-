@@ -1,0 +1,55 @@
+[
+    {
+        "id": "7358e80f7b17340e",
+        "type": "mqtt in",
+        "z": "86bea5de53a7ccf0",
+        "name": "",
+        "topic": "channels/3407423/subscribe/fields/field2",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "6cbaf7160b22efab",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 380,
+        "wires": [
+            [
+                "c118c3edc9823f3d",
+                "03b101c7bbdd83da"
+            ]
+        ]
+    },
+    {
+        "id": "6cbaf7160b22efab",
+        "type": "mqtt-broker",
+        "name": "THINGSPEAK ESTACIÓN 1",
+        "broker": "mqtt3.thingspeak.com",
+        "port": 1883,
+        "clientid": "Ji0XEB8tMDQ7OxodHwYnOAg",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

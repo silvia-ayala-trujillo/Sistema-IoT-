@@ -1,0 +1,1825 @@
+<div class="iot-dashboard">
+
+<style>
+.iot-dashboard{font-family:Arial,sans-serif;background:#eef3f8;color:#1f2933;padding:22px;max-width:1300px;margin:auto}
+.header{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:white;padding:26px;border-radius:20px;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,.18)}
+.header h1{margin:0;font-size:28px}.header p{margin:8px 0 0;color:#dbeafe}
+.status{margin-top:18px;padding:14px;border-radius:14px;background:white;border-left:6px solid #2563eb;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:20px}
+.card,.panel{background:white;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(15,23,42,.12)}
+.card{text-align:center;position:relative;overflow:hidden}
+.card:before,.panel:before{content:"";display:block;height:6px;border-radius:18px 18px 0 0;margin:-20px -20px 16px -20px}
+.temp:before{background:#dc2626}.hum:before{background:#2563eb}.est:before{background:#16a34a}
+.control:before{background:#7c3aed}.graficas:before{background:#0ea5e9}.estado:before{background:#64748b}.indicadores:before{background:#f97316}
+.valor{font-size:36px;font-weight:800}.unidad{font-size:20px;color:#64748b}
+.on{color:#16a34a}.off{color:#dc2626}.neutral{color:#64748b}
+
+.switch-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px;align-items:center}
+.switch-card{background:#f8fafc;border:1px solid #dbe3ef;border-radius:18px;padding:24px;text-align:center}
+.switch-card h3{margin:0;font-size:22px;color:#0f172a}.switch-card p{color:#64748b;font-weight:bold;margin:8px 0 18px 0}
+.auto-card{border-top:6px solid #2563eb}.manual-card{border-top:6px solid #16a34a}
+.switch{position:relative;display:inline-block;width:94px;height:50px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;transition:.35s;border-radius:50px;box-shadow:inset 0 2px 6px rgba(0,0,0,.25)}
+.slider:before{position:absolute;content:"";height:40px;width:40px;left:5px;bottom:5px;background:white;transition:.35s;border-radius:50%;box-shadow:0 3px 8px rgba(0,0,0,.25)}
+input:checked + .auto-slider{background:#2563eb}
+input:checked + .manual-slider{background:#16a34a}
+input:checked + .slider:before{transform:translateX(44px)}
+input:disabled + .slider{opacity:.45;cursor:not-allowed}
+.switch-text{margin-top:14px;font-weight:800;font-size:16px;color:#334155}
+
+.animacion-box{text-align:center}
+.animacion{height:170px;display:flex;align-items:center;justify-content:center}
+
+.heater-pro{position:relative;width:150px;height:170px;margin:auto;display:flex;align-items:center;justify-content:center;opacity:.35;transition:.35s}
+.heater-pro.active{opacity:1}
+.heat-glow{position:absolute;width:135px;height:135px;border-radius:50%;background:radial-gradient(circle,rgba(249,115,22,.55),rgba(249,115,22,.12),transparent 70%);animation:heatPulse 1.4s infinite ease-in-out}
+.heater-body-pro{position:relative;width:115px;height:140px;border-radius:22px;background:linear-gradient(145deg,#1e293b,#334155);box-shadow:0 12px 28px rgba(15,23,42,.35), inset 0 0 12px rgba(255,255,255,.08);display:flex;flex-direction:column;align-items:center;overflow:hidden}
+.heater-top{width:70px;height:10px;background:#94a3b8;border-radius:0 0 10px 10px}
+.heater-grille{display:flex;gap:8px;margin-top:20px}
+.heater-grille span{width:8px;height:54px;border-radius:8px;background:linear-gradient(to bottom,#f97316,#dc2626,#7f1d1d);box-shadow:0 0 12px rgba(249,115,22,.9);animation:barHeat 1s infinite alternate}
+.heater-grille span:nth-child(2){animation-delay:.15s}
+.heater-grille span:nth-child(3){animation-delay:.30s}
+.heater-grille span:nth-child(4){animation-delay:.45s}
+.heater-flame{position:absolute;bottom:24px;display:flex;gap:4px;align-items:flex-end}
+.flame{width:18px;height:34px;border-radius:50% 50% 45% 45%;background:linear-gradient(to top,#dc2626,#f97316,#fde68a);transform-origin:bottom center;filter:drop-shadow(0 0 8px #f97316);animation:flameMove .65s infinite alternate ease-in-out}
+.f2{height:44px;animation-delay:.18s}
+.f3{height:30px;animation-delay:.32s}
+.heater-base{position:absolute;bottom:0;width:80px;height:12px;background:#94a3b8;border-radius:12px 12px 0 0}
+.heater-pro:not(.active) .heat-glow,.heater-pro:not(.active) .heater-grille span,.heater-pro:not(.active) .flame{animation:none;opacity:.25;box-shadow:none;filter:none}
+.heater-pro:not(.active) .heater-grille span{background:#94a3b8}
+.heater-pro:not(.active) .flame{background:#94a3b8}
+@keyframes heatPulse{0%{transform:scale(.92);opacity:.55}50%{transform:scale(1.12);opacity:1}100%{transform:scale(.92);opacity:.55}}
+@keyframes barHeat{from{opacity:.65;transform:scaleY(.92)}to{opacity:1;transform:scaleY(1.08)}}
+@keyframes flameMove{from{transform:scale(.9) rotate(-3deg);opacity:.8}to{transform:scale(1.15) rotate(3deg);opacity:1}}
+
+.mode-badge{padding:10px;border-radius:12px;background:#f1f5f9;font-weight:800;text-align:center}
+.btn{border:0;border-radius:15px;padding:18px;color:white;font-size:17px;font-weight:800;cursor:pointer;transition:.25s}
+.btn:hover{transform:translateY(-2px)}.actualizar{background:linear-gradient(135deg,#334155,#0f172a)}
+canvas{width:100%;height:360px;background:#ffffff;border-radius:14px;border:1px solid #e2e8f0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.msg{margin-top:14px;background:#f8fafc;border:1px solid #dbe3ef;padding:12px;border-radius:12px;font-weight:bold;text-align:center}
+@media(max-width:900px){.grid,.two,.switch-panel{grid-template-columns:1fr}}
+</style>
+
+<div class="header">
+  <h1>Estación 1 - Maestro</h1>
+  <p>Control y Monitoreo Térmico por Histéresis : AtomS3 Lite + DHT22 + Node-RED + MQTT + ThingSpeak</p>
+</div>
+
+<div class="status">Estado del sistema: <span id="estadoSistema">Inicializando...</span></div>
+
+<div class="grid">
+  <div class="card temp"><h2>Temperatura</h2><span id="tempNow" class="valor">--</span><span class="unidad"> °C</span></div>
+  <div class="card hum"><h2>Humedad</h2><span id="humNow" class="valor">--</span><span class="unidad"> %</span></div>
+  <div class="card est"><h2>Calefactor</h2><div id="heaterNow" class="valor neutral">--</div></div>
+</div>
+
+<div class="panel control" style="margin-top:20px">
+  <h2>Panel de Control</h2>
+
+  <div class="switch-panel">
+    <div class="switch-card auto-card">
+      <h3>Modo Automático</h3>
+      <p>Control por histéresis</p>
+      <label class="switch">
+        <input id="swAuto" type="checkbox" onchange="cambiarAutomatico(this.checked)">
+        <span class="slider auto-slider"></span>
+      </label>
+      <div id="estadoAuto" class="switch-text">Automático OFF</div>
+    </div>
+
+    <div class="animacion-box">
+      <div class="animacion">
+        <div id="heaterIcon" class="heater-pro">
+          <div class="heat-glow"></div>
+          <div class="heater-body-pro">
+            <div class="heater-top"></div>
+            <div class="heater-grille">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <div class="heater-flame">
+              <span id="flame" class="flame f1"></span>
+              <span class="flame f2"></span>
+              <span class="flame f3"></span>
+            </div>
+            <div class="heater-base"></div>
+          </div>
+        </div>
+      </div>
+      <div id="modoTexto" class="mode-badge">Modo no confirmado</div>
+    </div>
+
+    <div class="switch-card manual-card">
+      <h3>Modo Manual</h3>
+      <p>ON/OFF calefactor</p>
+      <label class="switch">
+        <input id="swManual" type="checkbox" onchange="cambiarManual(this.checked)">
+        <span class="slider manual-slider"></span>
+      </label>
+      <div id="estadoManual" class="switch-text">Manual OFF</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px">
+    <button class="btn actualizar" onclick="leerDatos()">Actualizar datos</button>
+  </div>
+
+  <div id="mensaje" class="msg">Esperando datos...</div>
+</div>
+
+<div class="panel graficas" style="margin-top:20px">
+  <h2>Temperatura y Humedad</h2>
+  <div class="two">
+    <canvas id="chartTemp"></canvas>
+    <canvas id="chartHum"></canvas>
+  </div>
+</div>
+
+<div class="panel estado" style="margin-top:20px">
+  <h2>Estado del Calefactor ON/OFF</h2>
+  <canvas id="chartHeater"></canvas>
+</div>
+
+<div class="panel indicadores" style="margin-top:20px">
+  <h2>Indicadores Térmicos</h2>
+  <div class="two">
+    <canvas id="chartHI"></canvas>
+    <canvas id="chartDew"></canvas>
+  </div>
+  <div class="two" style="margin-top:18px">
+    <canvas id="chartVPD"></canvas>
+    <canvas id="chartComfort"></canvas>
+  </div>
+</div>
+
+<script>
+var channelID="3407423";
+var readAPIKey="QQINDGA87SSOTIWW";
+var writeAPIKey="3YMMG9LFR8M2JJ7T";
+
+var INTERVALO_WEB=20000;
+var controlEnProceso=false;
+var ultimoModoAuto=0;
+var ultimoManual=0;
+var estadoEstimadoCalefactor=0;
+var timerLectura=null;
+var puntosCampoCacheTemp=[];
+
+function iniciar(){
+  leerDatos();
+  timerLectura=setInterval(function(){leerDatos();},INTERVALO_WEB);
+}
+
+function leerDatos(){
+  var url="https://api.thingspeak.com/channels/"+channelID+"/feeds.json?api_key="+readAPIKey+"&results=100";
+
+  escribir("estadoSistema","Leyendo datos desde ThingSpeak...");
+
+  pedirJSON(url,function(err,data){
+    if(err||!data||!data.feeds){
+      escribir("estadoSistema","Error leyendo datos.");
+      return;
+    }
+
+    var feeds=data.feeds;
+
+    var puntosT=puntosCampo(feeds,"field1");
+    var puntosH=puntosCampo(feeds,"field2");
+    var puntosA=puntosCampo(feeds,"field4");
+    var puntosM=puntosCampo(feeds,"field5");
+
+    var tNow=ultimoPunto(puntosT);
+    var hNow=ultimoPunto(puntosH);
+    var aNow=ultimoPunto(puntosA);
+    var mNow=ultimoPunto(puntosM);
+
+    ultimoModoAuto=aNow?normalizar(aNow.valor):0;
+    ultimoManual=mNow?normalizar(mNow.valor):0;
+
+    escribir("tempNow",tNow?tNow.valor.toFixed(2):"--");
+    escribir("humNow",hNow?hNow.valor.toFixed(2):"--");
+
+    var puntosEstadoVisual=generarEstadoVisualParaGrafica(feeds);
+    var estadoVisualActual=ultimoPunto(puntosEstadoVisual);
+
+    actualizarEstadoVisual(estadoVisualActual);
+    actualizarSwitches();
+
+    dibujarLineaPuntos("chartTemp",puntosT,"Temperatura [°C]","#dc2626");
+    dibujarLineaPuntos("chartHum",puntosH,"Humedad [%]","#2563eb");
+    dibujarEscalonPuntos("chartHeater",puntosEstadoVisual,"Estado del calefactor ON/OFF","#16a34a");
+
+    var puntosHI=calcularIndiceTermico(feeds);
+    var puntosDP=calcularDewPoint(feeds);
+    var puntosVPD=calcularVPD(feeds);
+
+    dibujarMultiLineaPuntos("chartHI",[
+      {nombre:"Temperatura [°C]",puntos:puntosT,color:"#dc2626"},
+      {nombre:"Humedad [%]",puntos:puntosH,color:"#2563eb"},
+      {nombre:"Índice térmico [°C]",puntos:puntosHI,color:"#f97316"}
+    ],"Temperatura, Humedad e Índice Térmico");
+
+    dibujarMultiLineaPuntos("chartDew",[
+      {nombre:"Temperatura [°C]",puntos:puntosT,color:"#dc2626"},
+      {nombre:"Punto de rocío [°C]",puntos:puntosDP,color:"#06b6d4"}
+    ],"Temperatura y Punto de Rocío");
+
+    dibujarLineaConLimitesPuntos("chartVPD",puntosVPD,"Déficit de Presión de Vapor - VPD","#7c3aed",[
+      {valor:0.5,texto:"Ambiente húmedo",color:"#2563eb"},
+      {valor:1.2,texto:"Zona moderada",color:"#f97316"}
+    ]);
+
+    dibujarConfortAvanzado("chartComfort",feeds);
+
+    escribir("estadoSistema","Datos actualizados correctamente cada 20 segundos.");
+    escribir("mensaje","Última lectura actualizada. Registros: "+feeds.length+". Dashboard sincronizado a 20 segundos.");
+  });
+}
+
+function cambiarAutomatico(estado){
+  if(controlEnProceso)return;
+
+  if(estado){
+    enviarControlSeguro(1,0,"Modo automático activado");
+  }else{
+    enviarControlSeguro(0,0,"Modo automático desactivado");
+  }
+}
+
+function cambiarManual(estado){
+  if(controlEnProceso)return;
+
+  if(estado){
+    enviarControlSeguro(0,1,"Modo manual ON");
+  }else{
+    enviarControlSeguro(0,0,"Modo manual OFF");
+  }
+}
+
+function enviarControlSeguro(autoVal,manualVal,texto){
+  controlEnProceso=true;
+  bloquearTodo(true);
+
+  ultimoModoAuto=autoVal;
+  ultimoManual=manualVal;
+
+  var tActual=ultimoPunto(puntosCampoCacheTemp||[]);
+
+  if(manualVal===1){
+    estadoEstimadoCalefactor=1;
+  }else if(autoVal===0&&manualVal===0){
+    estadoEstimadoCalefactor=0;
+  }else if(autoVal===1&&tActual){
+    if(tActual.valor<=25){estadoEstimadoCalefactor=1;}
+    else if(tActual.valor>=40){estadoEstimadoCalefactor=0;}
+  }
+
+  actualizarSwitches();
+  actualizarEstadoVisual({
+    valor:estadoEstimadoCalefactor,
+    tiempo:new Date(),
+    etiqueta:"Estado estimado"
+  });
+
+  escribir("mensaje","Orden enviada: "+texto+". La próxima actualización completa será en 20 segundos.");
+  escribir("estadoSistema","Orden enviada. Esperando actualización del ciclo de 20 segundos.");
+
+  enviarConReintento(autoVal,manualVal,texto,1);
+}
+
+function enviarConReintento(autoVal,manualVal,texto,intento){
+  var maxIntentos=5;
+  
+  var url="https://api.thingspeak.com/update.json?api_key="+writeAPIKey+
+        "&field3="+estadoEstimadoCalefactor+
+        "&field4="+autoVal+
+        "&field5="+manualVal;
+
+  pedirTexto(url,function(err,respuesta,status){
+    var ok=false;
+
+    try{
+      var obj=JSON.parse(respuesta);
+      if(obj&&obj.entry_id&&Number(obj.entry_id)>0){ok=true;}
+    }catch(e){
+      if(parseInt(respuesta)>0){ok=true;}
+    }
+
+    if(ok){
+      escribir("mensaje","Orden registrada en ThingSpeak: "+texto+". Actualización sincronizada cada 20 segundos.");
+      controlEnProceso=false;
+      bloquearTodo(false);
+      actualizarSwitches();
+
+      setTimeout(function(){leerDatos();},INTERVALO_WEB);
+    }else{
+      if(intento<maxIntentos){
+        escribir("mensaje","ThingSpeak respondió 0. Reintentando en 20 segundos...");
+        setTimeout(function(){enviarConReintento(autoVal,manualVal,texto,intento+1);},INTERVALO_WEB);
+      }else{
+        escribir("mensaje","No se confirmó la escritura. Revise API Key o límite de ThingSpeak.");
+        controlEnProceso=false;
+        bloquearTodo(false);
+        actualizarSwitches();
+      }
+    }
+  });
+}
+
+function generarEstadoVisualParaGrafica(feeds){
+  var puntos=[];
+  var modoAuto=0;
+  var modoManual=0;
+  var temperatura=null;
+  var estado=estadoEstimadoCalefactor;
+
+  if(!feeds||feeds.length===0){return puntos;}
+
+  for(var i=0;i<feeds.length;i++){
+    var f=feeds[i];
+
+    if(esNumero(f.field1)){temperatura=parseFloat(f.field1);}
+    if(esNumero(f.field4)){modoAuto=normalizar(parseFloat(f.field4));}
+    if(esNumero(f.field5)){modoManual=normalizar(parseFloat(f.field5));}
+
+    /*
+      CORRECCIÓN:
+      La web usa Field4/Field5 como mando principal cada 20 s.
+      Field3 ya no domina la visualización si llega tarde.
+      Así se evita que la web muestre OFF mientras el calefactor físico ya está ON.
+    */
+
+    if(modoManual===1){
+      estado=1;
+    }else if(modoAuto===1){
+      if(temperatura!==null){
+        if(temperatura<=25){estado=1;}
+        else if(temperatura>=40){estado=0;}
+      }
+    }else{
+      estado=0;
+    }
+
+    puntos.push({
+      valor:estado,
+      tiempo:new Date(f.created_at),
+      etiqueta:formatearFechaHora(f.created_at)
+    });
+  }
+
+  estadoEstimadoCalefactor=estado;
+  return puntos;
+}
+
+function actualizarEstadoVisual(puntoEstado){
+  var el=document.getElementById("heaterNow");
+  var heaterIcon=document.getElementById("heaterIcon");
+  var flame=document.getElementById("flame");
+
+  var estadoVisual=0;
+
+  if(puntoEstado&&(Number(puntoEstado.valor)===1||Number(puntoEstado.valor)===0)){
+    estadoVisual=Number(puntoEstado.valor);
+  }else{
+    estadoVisual=estadoEstimadoCalefactor;
+  }
+
+  estadoEstimadoCalefactor=estadoVisual;
+
+  if(estadoVisual===1){
+    el.innerHTML="ON";
+    el.className="valor on";
+    heaterIcon.className="heater-pro active";
+    flame.className="flame run";
+  }else{
+    el.innerHTML="OFF";
+    el.className="valor off";
+    heaterIcon.className="heater-pro";
+    flame.className="flame";
+  }
+}
+
+function actualizarSwitches(){
+  var autoActivo=Number(ultimoModoAuto)===1;
+  var manualActivo=Number(ultimoManual)===1;
+
+  var swAuto=document.getElementById("swAuto");
+  var swManual=document.getElementById("swManual");
+
+  swAuto.checked=autoActivo;
+  swManual.checked=manualActivo;
+
+  swAuto.disabled=controlEnProceso||manualActivo;
+  swManual.disabled=controlEnProceso||autoActivo;
+
+  if(autoActivo){
+    escribir("modoTexto","Modo AUTOMÁTICO activo - Control por histéresis");
+    escribir("estadoAuto","Automático ON");
+    escribir("estadoManual","Manual bloqueado");
+  }else if(manualActivo){
+    escribir("modoTexto","Modo MANUAL activo - Calefactor ON");
+    escribir("estadoAuto","Automático bloqueado");
+    escribir("estadoManual","Manual ON");
+  }else{
+    escribir("modoTexto","Sistema sin modo activo - Calefactor OFF");
+    escribir("estadoAuto","Automático OFF");
+    escribir("estadoManual","Manual OFF");
+  }
+}
+
+function bloquearTodo(v){
+  document.getElementById("swAuto").disabled=v;
+  document.getElementById("swManual").disabled=v;
+}
+
+function puntosCampo(feeds,field){
+  var puntos=[];
+  for(var i=0;i<feeds.length;i++){
+    var v=feeds[i][field];
+    if(esNumero(v)){
+      puntos.push({
+        valor:parseFloat(v),
+        tiempo:new Date(feeds[i].created_at),
+        etiqueta:formatearFechaHora(feeds[i].created_at)
+      });
+    }
+  }
+
+  if(field==="field1"){puntosCampoCacheTemp=puntos;}
+
+  return puntos;
+}
+
+function ultimoPunto(puntos){
+  if(!puntos||puntos.length===0)return null;
+  return puntos[puntos.length-1];
+}
+
+function calcularIndiceTermico(feeds){
+  var puntos=[];
+  for(var i=0;i<feeds.length;i++){
+    var T=feeds[i].field1,H=feeds[i].field2;
+    if(esNumero(T)&&esNumero(H)){
+      T=parseFloat(T);H=parseFloat(H);
+      puntos.push({
+        valor:T+0.05*H,
+        tiempo:new Date(feeds[i].created_at),
+        etiqueta:formatearFechaHora(feeds[i].created_at)
+      });
+    }
+  }
+  return puntos;
+}
+
+function calcularDewPoint(feeds){
+  var puntos=[];
+  for(var i=0;i<feeds.length;i++){
+    var T=feeds[i].field1,H=feeds[i].field2;
+    if(esNumero(T)&&esNumero(H)&&parseFloat(H)>0){
+      T=parseFloat(T);H=parseFloat(H);
+      var a=17.27,b=237.7;
+      var g=Math.log(H/100)+(a*T)/(b+T);
+      var Td=(b*g)/(a-g);
+      puntos.push({
+        valor:Td,
+        tiempo:new Date(feeds[i].created_at),
+        etiqueta:formatearFechaHora(feeds[i].created_at)
+      });
+    }
+  }
+  return puntos;
+}
+
+function calcularVPD(feeds){
+  var puntos=[];
+  for(var i=0;i<feeds.length;i++){
+    var T=feeds[i].field1,H=feeds[i].field2;
+    if(esNumero(T)&&esNumero(H)){
+      T=parseFloat(T);H=parseFloat(H);
+      var es=0.6108*Math.exp((17.27*T)/(T+237.3));
+      var ea=es*(H/100);
+      puntos.push({
+        valor:es-ea,
+        tiempo:new Date(feeds[i].created_at),
+        etiqueta:formatearFechaHora(feeds[i].created_at)
+      });
+    }
+  }
+  return puntos;
+}
+
+function formatearFechaHora(fecha){
+  var d=new Date(fecha);
+  return d.toLocaleString("es-EC",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+}
+
+function esNumero(v){return v!==null&&v!==undefined&&v!==""&&!isNaN(parseFloat(v));}
+function normalizar(v){if(v===null||isNaN(v))return 0;return Number(v)>=1?1:0;}
+
+function dibujarLineaPuntos(id,puntos,titulo,color){
+  var c=document.getElementById(id),ctx=c.getContext("2d");
+  prepararCanvas(c,ctx);
+  var w=c.offsetWidth,h=360,pL=65,pR=25,pT=45,pB=78;
+  limpiarGrafica(ctx,w,h,titulo);
+
+  if(!puntos||puntos.length<2){sinDatos(ctx,w,h);return;}
+
+  var vals=puntos.map(function(p){return p.valor;});
+  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+  var margen=(max-min)*0.15;if(margen===0)margen=1;
+  min-=margen;max+=margen;
+
+  dibujarEjesTiempo(ctx,w,h,pL,pR,pT,pB,min,max,puntos);
+  trazarSerie(ctx,w,h,pL,pR,pT,pB,min,max,puntos,color);
+}
+
+function dibujarMultiLineaPuntos(id,series,titulo){
+  var c=document.getElementById(id),ctx=c.getContext("2d");
+  prepararCanvas(c,ctx);
+  var w=c.offsetWidth,h=360,pL=65,pR=25,pT=45,pB=90;
+  limpiarGrafica(ctx,w,h,titulo);
+
+  var todos=[],base=null;
+
+  for(var s=0;s<series.length;s++){
+    if(series[s].puntos&&series[s].puntos.length>0){
+      base=series[s].puntos;
+      for(var i=0;i<series[s].puntos.length;i++){
+        todos.push(series[s].puntos[i].valor);
+      }
+    }
+  }
+
+  if(!base||todos.length<2){sinDatos(ctx,w,h);return;}
+
+  var min=Math.min.apply(null,todos),max=Math.max.apply(null,todos);
+  var margen=(max-min)*0.15;if(margen===0)margen=1;
+  min-=margen;max+=margen;
+
+  dibujarEjesTiempo(ctx,w,h,pL,pR,pT,pB,min,max,base);
+
+  for(var s2=0;s2<series.length;s2++){
+    trazarSerie(ctx,w,h,pL,pR,pT,pB,min,max,series[s2].puntos,series[s2].color);
+  }
+
+  dibujarLeyenda(ctx,series,pL,pT,w);
+}
+
+function dibujarLineaConLimitesPuntos(id,puntos,titulo,color,limites){
+  var c=document.getElementById(id),ctx=c.getContext("2d");
+  prepararCanvas(c,ctx);
+  var w=c.offsetWidth,h=360,pL=65,pR=25,pT=45,pB=90;
+  limpiarGrafica(ctx,w,h,titulo);
+
+  if(!puntos||puntos.length<2){sinDatos(ctx,w,h);return;}
+
+  var vals=puntos.map(function(p){return p.valor;});
+
+  for(var l=0;l<limites.length;l++){vals.push(limites[l].valor);}
+
+  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+  var margen=(max-min)*0.25;if(margen===0)margen=1;
+  min-=margen;max+=margen;
+
+  dibujarEjesTiempo(ctx,w,h,pL,pR,pT,pB,min,max,puntos);
+
+  for(var i=0;i<limites.length;i++){
+    var y=h-pB-(limites[i].valor-min)*(h-pT-pB)/(max-min);
+    ctx.save();
+    ctx.strokeStyle=limites[i].color;
+    ctx.setLineDash([8,6]);
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(pL,y);ctx.lineTo(w-pR,y);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=limites[i].color;
+    ctx.font="bold 12px Arial";
+    ctx.textAlign="right";
+    ctx.fillText(limites[i].texto,w-pR-5,y-6);
+    ctx.restore();
+  }
+
+  trazarSerie(ctx,w,h,pL,pR,pT,pB,min,max,puntos,color);
+  dibujarLeyenda(ctx,[{nombre:"VPD [kPa]",color:color}],pL,pT,w);
+}
+
+function dibujarEscalonPuntos(id,puntos,titulo,color){
+  var c=document.getElementById(id),ctx=c.getContext("2d");
+  prepararCanvas(c,ctx);
+  var w=c.offsetWidth,h=360,pL=65,pR=25,pT=45,pB=78;
+  limpiarGrafica(ctx,w,h,titulo);
+
+  if(!puntos||puntos.length<2){sinDatos(ctx,w,h);return;}
+
+  dibujarEjesTiempo(ctx,w,h,pL,pR,pT,pB,0,1,puntos);
+
+  ctx.beginPath();
+  ctx.strokeStyle=color;
+  ctx.lineWidth=4;
+  ctx.lineJoin="round";
+  ctx.lineCap="round";
+
+  for(var i=0;i<puntos.length;i++){
+    var valor=Number(puntos[i].valor)>=1?1:0;
+    var x=pL+i*(w-pL-pR)/(puntos.length-1);
+    var y=h-pB-valor*(h-pT-pB);
+
+    if(i===0){ctx.moveTo(x,y);}
+    else{ctx.lineTo(x,y);}
+  }
+
+  ctx.stroke();
+
+  ctx.fillStyle="#334155";
+  ctx.font="12px Arial";
+  ctx.fillText("OFF",22,h-pB+4);
+  ctx.fillText("ON",28,pT+4);
+}
+
+function trazarSerie(ctx,w,h,pL,pR,pT,pB,min,max,puntos,color){
+  if(!puntos||puntos.length<2)return;
+
+  ctx.beginPath();
+  ctx.strokeStyle=color;
+  ctx.lineWidth=2.6;
+  ctx.lineJoin="round";
+  ctx.lineCap="round";
+
+  for(var i=0;i<puntos.length;i++){
+    var x=pL+i*(w-pL-pR)/(puntos.length-1);
+    var y=h-pB-(puntos[i].valor-min)*(h-pT-pB)/(max-min);
+
+    if(i===0){ctx.moveTo(x,y);}
+    else{ctx.lineTo(x,y);}
+  }
+
+  ctx.stroke();
+
+  for(var j=0;j<puntos.length;j++){
+    var x2=pL+j*(w-pL-pR)/(puntos.length-1);
+    var y2=h-pB-(puntos[j].valor-min)*(h-pT-pB)/(max-min);
+
+    ctx.beginPath();
+    ctx.fillStyle=color;
+    ctx.strokeStyle="#ffffff";
+    ctx.lineWidth=1.3;
+    ctx.arc(x2,y2,3.7,0,2*Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function dibujarConfortAvanzado(id,feeds){
+  var c=document.getElementById(id),ctx=c.getContext("2d");
+  prepararCanvas(c,ctx);
+  var w=c.offsetWidth,h=360,pL=65,pR=25,pT=45,pB=65;
+  limpiarGrafica(ctx,w,h,"Mapa de Confort Térmico");
+
+  var Tmin=18,Tmax=30,Hmin=30,Hmax=80;
+
+  dibujarEjesXY(ctx,w,h,pL,pR,pT,pB,Tmin,Tmax,Hmin,Hmax);
+
+  var xFrio=pL+(20-Tmin)*(w-pL-pR)/(Tmax-Tmin);
+  var xConfort1=xFrio;
+  var xConfort2=pL+(27-Tmin)*(w-pL-pR)/(Tmax-Tmin);
+
+  var yH40=h-pB-(40-Hmin)*(h-pT-pB)/(Hmax-Hmin);
+  var yH60=h-pB-(60-Hmin)*(h-pT-pB)/(Hmax-Hmin);
+  var yH70=h-pB-(70-Hmin)*(h-pT-pB)/(Hmax-Hmin);
+
+  ctx.save();
+
+  ctx.fillStyle="rgba(22,163,74,0.08)";
+  ctx.fillRect(xConfort1,yH60,xConfort2-xConfort1,yH40-yH60);
+
+  ctx.strokeStyle="#16a34a";
+  ctx.lineWidth=1.6;
+  ctx.setLineDash([7,5]);
+  ctx.strokeRect(xConfort1,yH60,xConfort2-xConfort1,yH40-yH60);
+
+  ctx.strokeStyle="#2563eb";
+  ctx.beginPath();ctx.moveTo(xFrio,pT);ctx.lineTo(xFrio,h-pB);ctx.stroke();
+
+  ctx.strokeStyle="#64748b";
+  ctx.beginPath();ctx.moveTo(pL,yH40);ctx.lineTo(w-pR,yH40);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pL,yH60);ctx.lineTo(w-pR,yH60);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pL,yH70);ctx.lineTo(w-pR,yH70);ctx.stroke();
+
+  ctx.setLineDash([]);
+
+  ctx.fillStyle="#2563eb";
+  ctx.font="bold 12px Arial";
+  ctx.textAlign="left";
+  ctx.fillText("Frío",xFrio+6,pT+16);
+
+  ctx.fillStyle="#16a34a";
+  ctx.fillText("Confort térmico",xConfort1+8,yH60+18);
+
+  ctx.fillStyle="#64748b";
+  ctx.textAlign="right";
+  ctx.fillText("Humedad baja",w-pR-5,yH40-6);
+  ctx.fillText("Humedad adecuada",w-pR-5,yH60-6);
+  ctx.fillText("Humedad alta",w-pR-5,yH70-6);
+
+  ctx.restore();
+
+  for(var i=0;i<feeds.length;i++){
+    if(!esNumero(feeds[i].field1)||!esNumero(feeds[i].field2))continue;
+
+    var T=parseFloat(feeds[i].field1);
+    var H=parseFloat(feeds[i].field2);
+
+    var x=pL+(T-Tmin)*(w-pL-pR)/(Tmax-Tmin);
+    var y=h-pB-(H-Hmin)*(h-pT-pB)/(Hmax-Hmin);
+
+    var color="#dc2626";
+
+    if(T>=20&&T<=27&&H>=40&&H<=60){color="#16a34a";}
+    else if(T>=18&&T<=30&&H>=30&&H<=70){color="#f59e0b";}
+
+    ctx.beginPath();
+    ctx.fillStyle=color;
+    ctx.strokeStyle="#ffffff";
+    ctx.lineWidth=1.5;
+    ctx.arc(x,y,6,0,2*Math.PI);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.fillStyle="#334155";
+  ctx.font="12px Arial";
+  ctx.textAlign="center";
+  ctx.fillText("Temperatura [°C]",w/2,h-15);
+
+  ctx.save();
+  ctx.translate(18,h/2+45);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign="center";
+  ctx.fillText("Humedad relativa [%]",0,0);
+  ctx.restore();
+
+  dibujarLeyenda(ctx,[
+    {nombre:"Confort",color:"#16a34a"},
+    {nombre:"Intermedio",color:"#f59e0b"},
+    {nombre:"Fuera de confort",color:"#dc2626"}
+  ],pL,pT,w);
+}
+
+function dibujarLeyenda(ctx,series,pL,pT,w){
+  var x=pL,y=pT+8;
+
+  ctx.save();
+  ctx.font="12px Arial";
+  ctx.textAlign="left";
+
+  for(var i=0;i<series.length;i++){
+    ctx.fillStyle=series[i].color;
+    ctx.fillRect(x,y,14,4);
+
+    ctx.fillStyle="#334155";
+    ctx.fillText(series[i].nombre,x+20,y+5);
+
+    x+=ctx.measureText(series[i].nombre).width+55;
+
+    if(x>w-180){
+      x=pL;
+      y+=18;
+    }
+  }
+
+  ctx.restore();
+}
+
+function prepararCanvas(c,ctx){
+  var ratio=window.devicePixelRatio||1;
+  var rect=c.getBoundingClientRect();
+
+  c.width=rect.width*ratio;
+  c.height=360*ratio;
+
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  c.style.height="360px";
+}
+
+function limpiarGrafica(ctx,w,h,titulo){
+  ctx.clearRect(0,0,w,h);
+
+  ctx.fillStyle="#ffffff";
+  ctx.fillRect(0,0,w,h);
+
+  ctx.fillStyle="#1e293b";
+  ctx.font="bold 15px Arial";
+  ctx.textAlign="center";
+  ctx.fillText(titulo,w/2,24);
+
+  ctx.textAlign="left";
+}
+
+function dibujarEjesTiempo(ctx,w,h,pL,pR,pT,pB,min,max,puntos){
+  var plotW=w-pL-pR;
+  var plotH=h-pT-pB;
+
+  ctx.strokeStyle="#e2e8f0";
+  ctx.lineWidth=1;
+
+  for(var i=0;i<=5;i++){
+    var y=pT+i*plotH/5;
+
+    ctx.beginPath();
+    ctx.moveTo(pL,y);
+    ctx.lineTo(w-pR,y);
+    ctx.stroke();
+
+    var valor=max-(max-min)*i/5;
+
+    ctx.fillStyle="#475569";
+    ctx.font="12px Arial";
+    ctx.textAlign="right";
+    ctx.fillText(valor.toFixed(1),pL-8,y+4);
+  }
+
+  for(var j=0;j<=4;j++){
+    var x=pL+j*plotW/4;
+
+    ctx.beginPath();
+    ctx.moveTo(x,pT);
+    ctx.lineTo(x,h-pB);
+    ctx.stroke();
+
+    var idx=Math.round(j*(puntos.length-1)/4);
+
+    if(puntos[idx]){
+      ctx.save();
+      ctx.translate(x,h-pB+18);
+      ctx.rotate(-0.45);
+      ctx.fillStyle="#475569";
+      ctx.font="11px Arial";
+      ctx.textAlign="right";
+      ctx.fillText(puntos[idx].etiqueta,0,0);
+      ctx.restore();
+    }
+  }
+
+  ctx.strokeStyle="#334155";
+  ctx.lineWidth=1.4;
+
+  ctx.beginPath();
+  ctx.moveTo(pL,pT);
+  ctx.lineTo(pL,h-pB);
+  ctx.lineTo(w-pR,h-pB);
+  ctx.stroke();
+
+  ctx.fillStyle="#475569";
+  ctx.font="12px Arial";
+  ctx.textAlign="center";
+  ctx.fillText("Fecha y hora",w/2,h-8);
+}
+
+function dibujarEjesXY(ctx,w,h,pL,pR,pT,pB,xMin,xMax,yMin,yMax){
+  var plotW=w-pL-pR;
+  var plotH=h-pT-pB;
+
+  ctx.strokeStyle="#e2e8f0";
+  ctx.lineWidth=1;
+
+  for(var i=0;i<=5;i++){
+    var y=pT+i*plotH/5;
+    var valorY=yMax-(yMax-yMin)*i/5;
+
+    ctx.beginPath();
+    ctx.moveTo(pL,y);
+    ctx.lineTo(w-pR,y);
+    ctx.stroke();
+
+    ctx.fillStyle="#475569";
+    ctx.font="12px Arial";
+    ctx.textAlign="right";
+    ctx.fillText(valorY.toFixed(0),pL-8,y+4);
+  }
+
+  for(var j=0;j<=5;j++){
+    var x=pL+j*plotW/5;
+    var valorX=xMin+(xMax-xMin)*j/5;
+
+    ctx.beginPath();
+    ctx.moveTo(x,pT);
+    ctx.lineTo(x,h-pB);
+    ctx.stroke();
+
+    ctx.fillStyle="#475569";
+    ctx.font="12px Arial";
+    ctx.textAlign="center";
+    ctx.fillText(valorX.toFixed(0),x,h-pB+18);
+  }
+
+  ctx.strokeStyle="#334155";
+  ctx.lineWidth=1.4;
+
+  ctx.beginPath();
+  ctx.moveTo(pL,pT);
+  ctx.lineTo(pL,h-pB);
+  ctx.lineTo(w-pR,h-pB);
+  ctx.stroke();
+}
+
+function sinDatos(ctx,w,h){
+  ctx.fillStyle="#64748b";
+  ctx.font="14px Arial";
+  ctx.textAlign="center";
+  ctx.fillText("Sin datos suficientes para graficar",w/2,h/2);
+}
+
+function pedirJSON(url,cb){
+  pedirTexto(url,function(err,text,status){
+    if(err){
+      cb(true,null);
+      return;
+    }
+
+    try{
+      cb(false,JSON.parse(text));
+    }catch(e){
+      cb(true,null);
+    }
+  });
+}
+
+function pedirTexto(url,cb){
+  var xhr=new XMLHttpRequest();
+
+  xhr.open("GET",url,true);
+
+  xhr.onreadystatechange=function(){
+    if(xhr.readyState===4){
+      cb(!(xhr.status>=200&&xhr.status<300),xhr.responseText,xhr.status);
+    }
+  };
+
+  xhr.onerror=function(){
+    cb(true,"Error de red o CORS",0);
+  };
+
+  xhr.send();
+}
+
+function escribir(id,texto){
+  var e=document.getElementById(id);
+
+  if(e){
+    e.innerHTML=texto;
+  }
+}
+
+setTimeout(iniciar,1000);
+</script>
+
+</div>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sistema Inteligente de Monitoreo Ergonómico Térmico</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:linear-gradient(135deg,#eaf2fb,#f8fafc);
+  color:#1e293b;
+}
+
+.panel{
+  max-width:1250px;
+  margin:auto;
+  padding:24px;
+}
+
+.header{
+  background:linear-gradient(135deg,#0f172a,#1d4ed8);
+  color:white;
+  border-radius:20px;
+  padding:28px;
+  box-shadow:0 12px 30px rgba(15,23,42,.22);
+  border-left:8px solid #38bdf8;
+}
+
+.header h1{
+  margin:0;
+  font-size:30px;
+}
+
+.header p{
+  margin:10px 0 0;
+  font-weight:bold;
+  color:#dbeafe;
+}
+
+.execute-panel{
+  margin-top:22px;
+  background:white;
+  padding:28px;
+  border-radius:18px;
+  text-align:center;
+  box-shadow:0 10px 26px rgba(15,23,42,.12);
+  border-top:5px solid #1d4ed8;
+}
+
+.btn{
+  border:0;
+  padding:20px 38px;
+  border-radius:16px;
+  font-size:18px;
+  font-weight:900;
+  color:white;
+  cursor:pointer;
+  background:linear-gradient(135deg,#2563eb,#0f172a);
+}
+
+.btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 22px rgba(15,23,42,.28);
+}
+
+.status{
+  margin-top:16px;
+  font-weight:900;
+  color:#16a34a;
+}
+
+.card{
+  margin-top:22px;
+  background:white;
+  border-radius:18px;
+  padding:24px;
+  box-shadow:0 10px 26px rgba(15,23,42,.10);
+}
+
+.method{
+  line-height:1.6;
+  color:#475569;
+  font-weight:bold;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:16px;
+}
+
+.table th{
+  background:#0f172a;
+  color:white;
+  padding:12px;
+  text-align:left;
+  font-size:14px;
+}
+
+.table td{
+  border-bottom:1px solid #e2e8f0;
+  padding:12px;
+  font-size:14px;
+  font-weight:bold;
+}
+
+.results{
+  display:none;
+}
+
+.section-title{
+  margin-top:34px;
+  font-size:22px;
+  color:#0f172a;
+  border-left:7px solid #2563eb;
+  padding-left:12px;
+}
+
+.risk-card{
+  text-align:center;
+  border-top:8px solid #16a34a;
+  background:linear-gradient(135deg,#ffffff,#f8fafc);
+}
+
+.risk-label{
+  color:#64748b;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
+
+.risk-level{
+  font-size:48px;
+  font-weight:900;
+  margin-top:12px;
+}
+
+.score{
+  font-size:22px;
+  font-weight:900;
+  color:#334155;
+}
+
+.metrics{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+}
+
+.metric{
+  background:white;
+  border:1px solid #dbe4ef;
+  border-left:7px solid #2563eb;
+  border-radius:16px;
+  padding:18px;
+  text-align:center;
+  box-shadow:0 8px 20px rgba(15,23,42,.08);
+}
+
+.metric h3{
+  margin:0;
+  font-size:12px;
+  text-transform:uppercase;
+  color:#475569;
+  min-height:34px;
+}
+
+.metric div{
+  margin-top:12px;
+  font-size:28px;
+  font-weight:900;
+  color:#1d4ed8;
+}
+
+.metric.green{border-left-color:#16a34a;}
+.metric.green div{color:#16a34a;}
+
+.metric.blue{border-left-color:#2563eb;}
+.metric.blue div{color:#2563eb;}
+
+.metric.orange{border-left-color:#f97316;}
+.metric.orange div{color:#f97316;}
+
+.metric.red{border-left-color:#dc2626;}
+.metric.red div{color:#dc2626;}
+
+.semaforo-card{
+  padding:28px;
+}
+
+.bar{
+  margin-top:12px;
+  height:24px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#16a34a 0%,#22c55e 20%,#2563eb 40%,#facc15 60%,#f97316 80%,#dc2626 100%);
+  position:relative;
+}
+
+.marker{
+  width:24px;
+  height:24px;
+  background:#0f172a;
+  border:4px solid white;
+  border-radius:50%;
+  position:absolute;
+  top:-4px;
+  left:0%;
+  box-shadow:0 0 12px rgba(0,0,0,.45);
+}
+
+.levels{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    margin-top:16px;
+    text-align:center;
+}
+
+.item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+}
+
+.nivel-num{
+    font-size:24px;
+    font-weight:900;
+    margin-bottom:5px;
+}
+
+.nivel-texto{
+    font-size:13px;
+    font-weight:900;
+    letter-spacing:.4px;
+}
+
+/* COLORES */
+
+.verde{
+    color:#16a34a;
+}
+
+.azul{
+    color:#2563eb;
+}
+
+.amarillo{
+    color:#ca8a04;
+}
+
+.naranja{
+    color:#f97316;
+}
+
+.rojo{
+    color:#dc2626;
+}
+
+.recommendation{
+  margin-top:18px;
+  padding:22px;
+  border-radius:16px;
+  background:#f0fdf4;
+  border-left:8px solid #16a34a;
+  box-shadow:0 8px 20px rgba(15,23,42,.08);
+}
+
+.recommendation h3{
+  margin:0;
+  color:#0f172a;
+}
+
+.recommendation p{
+  margin:10px 0 0;
+  font-weight:bold;
+  color:#334155;
+  font-size:17px;
+}
+
+
+.alerts-panel{
+  margin-top:18px;
+  background:white;
+  border-radius:18px;
+  padding:24px;
+  box-shadow:0 10px 26px rgba(15,23,42,.10);
+  border-left:8px solid #16a34a;
+}
+
+.alert-main{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  background:#f8fafc;
+  border-radius:16px;
+  padding:20px;
+  border:1px solid #dbe4ef;
+}
+
+.alert-main h3{
+  margin:0;
+  font-size:22px;
+  color:#0f172a;
+}
+
+.alert-main p{
+  margin:8px 0 0;
+  color:#475569;
+  font-weight:bold;
+}
+
+.alert-led{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  flex-shrink:0;
+  box-shadow:0 0 18px rgba(15,23,42,.20);
+}
+
+.alert-led.normal{
+  background:#16a34a;
+  box-shadow:0 0 18px rgba(22,163,74,.65);
+}
+
+.alert-led.warning{
+  background:#f59e0b;
+  box-shadow:0 0 22px rgba(245,158,11,.80);
+}
+
+.alert-led.high{
+  background:#f97316;
+  box-shadow:0 0 24px rgba(249,115,22,.85);
+}
+
+.alert-led.critical{
+  background:#dc2626;
+  box-shadow:0 0 28px rgba(220,38,38,.95);
+  animation:alarmPulse 1s infinite;
+}
+
+.alert-grid{
+  margin-top:18px;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px;
+}
+
+.alert-box{
+  background:#f8fafc;
+  border:1px solid #dbe4ef;
+  border-radius:14px;
+  padding:16px;
+  text-align:center;
+}
+
+.alert-box span{
+  display:block;
+  font-size:12px;
+  color:#64748b;
+  text-transform:uppercase;
+  font-weight:900;
+}
+
+.alert-box strong{
+  display:block;
+  margin-top:10px;
+  font-size:18px;
+  color:#0f172a;
+  font-weight:900;
+}
+
+@keyframes alarmPulse{
+  0%{transform:scale(1);opacity:1;}
+  50%{transform:scale(1.18);opacity:.65;}
+  100%{transform:scale(1);opacity:1;}
+}
+
+.footer{
+  text-align:center;
+  margin-top:24px;
+  color:#64748b;
+  font-weight:bold;
+}
+
+@media(max-width:900px){
+  .alert-grid{
+    grid-template-columns:1fr;
+  }
+
+  .metrics{
+    grid-template-columns:1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="panel">
+
+  <div class="header">
+    <h1>Sistema Inteligente de Monitoreo Ergonómico Térmico</h1>
+    <p>ThingSpeak + React + MATLAB Analysis + Lógica Difusa</p>
+  </div>
+
+  <div class="execute-panel">
+    <button class="btn" onclick="ejecutarSistema()">
+      EJECUTAR SISTEMA INTELIGENTE
+    </button>
+    <div id="estadoEjecucion" class="status">
+      Presiona el botón para iniciar la visualización ergonómica térmica.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bloque metodológico</h2>
+    <p class="method">
+      El sistema inteligente de monitoreo ergonómico térmico utiliza datos de temperatura
+      y humedad obtenidos desde ThingSpeak. React ejecuta MATLAB Analysis automáticamente
+      cuando se inserta un nuevo dato en el canal. El análisis integra sensación térmica,
+      temperatura de globo y bulbo húmedo estimada, punto de rocío, voto medio previsto,
+      porcentaje previsto de insatisfechos, tendencia térmica y tiempo de exposición.
+      Estos parámetros permiten clasificar el nivel de riesgo térmico mediante lógica difusa.
+    </p>
+
+    <table class="table">
+      <tr>
+        <th>Nivel</th>
+        <th>Clasificación</th>
+        <th>Interpretación</th>
+        <th>Acción recomendada</th>
+      </tr>
+      <tr><td>0</td><td>Confortable</td><td>Condición térmica aceptable.</td><td>Mantener monitoreo normal.</td></tr>
+      <tr><td>1</td><td>Vigilancia</td><td>Inicio de posible incomodidad térmica.</td><td>Verificar ventilación e hidratación.</td></tr>
+      <tr><td>2</td><td>Precaución</td><td>Condición térmica incómoda.</td><td>Reducir exposición y programar pausas.</td></tr>
+      <tr><td>3</td><td>Alto</td><td>Riesgo térmico significativo.</td><td>Aplicar pausas y activar enfriamiento.</td></tr>
+      <tr><td>4</td><td>Crítico</td><td>Condición térmica no segura.</td><td>Detener exposición y aplicar medidas inmediatas.</td></tr>
+    </table>
+  </div>
+
+  <div id="resultados" class="results">
+
+    <h2 class="section-title">a) Tarjeta de resultado principal</h2>
+
+    <div id="riskCard" class="card risk-card">
+      <div class="risk-label">Nivel actual de riesgo térmico</div>
+      <div id="riskLevel" class="risk-level">--</div>
+      <div id="riskScore" class="score">Índice difuso: -- / 4</div>
+    </div>
+
+    <h2 class="section-title">b) Panel de indicadores ergonómicos</h2>
+
+    <div class="metrics">
+      <div class="metric blue"><h3>Temperatura ambiente</h3><div id="temp">-- °C</div></div>
+      <div class="metric blue"><h3>Humedad relativa</h3><div id="hum">-- %</div></div>
+      <div class="metric orange"><h3>Sensación térmica - Heat index</h3><div id="heatIndex">-- °C</div></div>
+      <div class="metric orange"><h3>Temperatura de globo y bulbo húmedo estimada - WBGT</h3><div id="wbgt">-- °C</div></div>
+      <div class="metric green"><h3>Punto de rocío</h3><div id="dewPoint">-- °C</div></div>
+      <div class="metric blue"><h3>Voto medio previsto - PMV</h3><div id="pmv">--</div></div>
+      <div class="metric red"><h3>Porcentaje previsto de insatisfechos - PPD</h3><div id="ppd">-- %</div></div>
+      <div class="metric orange"><h3>Exposición térmica reciente</h3><div id="exposure">-- min</div></div>
+    </div>
+
+    <h2 class="section-title">c) Semáforo de riesgo</h2>
+
+    <div class="card semaforo-card">
+      <div class="bar">
+        <div id="riskMarker" class="marker"></div>
+      </div>
+    
+      
+<div class="levels">
+
+    <div class="item verde">
+        <div class="nivel-num">0</div>
+        <div class="nivel-texto">CONFORTABLE</div>
+    </div>
+
+    <div class="item azul">
+        <div class="nivel-num">1</div>
+        <div class="nivel-texto">VIGILANCIA</div>
+    </div>
+
+    <div class="item amarillo">
+        <div class="nivel-num">2</div>
+        <div class="nivel-texto">PRECAUCIÓN</div>
+    </div>
+
+    <div class="item naranja">
+        <div class="nivel-num">3</div>
+        <div class="nivel-texto">ALTO</div>
+    </div>
+
+    <div class="item rojo">
+        <div class="nivel-num">4</div>
+        <div class="nivel-texto">CRÍTICO</div>
+    </div>
+
+</div>      
+      
+      
+    </div>
+    <h2 class="section-title">d) Recomendación operativa</h2>
+
+    <div id="recommendationBox" class="recommendation">
+      <h3>Acción sugerida</h3>
+      <p id="recommendation">--</p>
+    </div>
+
+
+    <h2 class="section-title">e) Alertas </h2>
+
+    <div id="alertsPanel" class="alerts-panel">
+
+      <div class="alert-main">
+        <div id="alertLed" class="alert-led normal"></div>
+        <div>
+          <h3 id="alertTitle">SIN ALERTA ACTIVA</h3>
+          <p id="alertMessage">El sistema se encuentra dentro de condiciones térmicas aceptables.</p>
+        </div>
+      </div>
+
+      <div class="alert-grid">
+        <div class="alert-box">
+          <span>Estado de alerta</span>
+          <strong id="alertStatus">NORMAL</strong>
+        </div>
+
+        <div class="alert-box">
+          <span>Nivel de riesgo</span>
+          <strong id="alertRiskLevel">0 - Confortable</strong>
+        </div>
+
+        <div class="alert-box">
+          <span>Acción automática</span>
+          <strong id="alertAction">Sin envío de alerta</strong>
+        </div>
+
+        <div class="alert-box">
+          <span>Última evaluación</span>
+          <strong id="alertTime">--/--/---- --:--:--</strong>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="footer">
+    ThingSpeak + React + MATLAB Analysis + Lógica Difusa | Monitoreo Ergonómico Térmico
+  </div>
+
+</div>
+
+<script>
+var CHANNEL_ID = "3407423";
+var READ_API_KEY = "QQINDGA87SSOTIWW";
+
+function ejecutarSistema(){
+  document.getElementById("estadoEjecucion").innerHTML =
+    "Ejecutando visualización. React y MATLAB Analysis se activan automáticamente con cada nueva inserción de datos.";
+
+  leerDatosErgonomicos();
+}
+
+function leerDatosErgonomicos(){
+  var url = "https://api.thingspeak.com/channels/" +
+    CHANNEL_ID +
+    "/feeds.json?results=36";
+
+  if(READ_API_KEY !== ""){
+    url += "&api_key=" + READ_API_KEY;
+  }
+
+  url += "&t=" + new Date().getTime();
+
+  fetch(url)
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+      if(!data || !data.feeds || data.feeds.length === 0){
+        document.getElementById("estadoEjecucion").innerHTML =
+          "No se encontraron datos válidos en ThingSpeak.";
+        return;
+      }
+
+      procesarDatos(data.feeds);
+    })
+    .catch(function(){
+      document.getElementById("estadoEjecucion").innerHTML =
+        "No se pudo leer ThingSpeak. Verifica canal o API Key.";
+    });
+}
+
+function procesarDatos(feeds){
+  var data = [];
+
+  for(var i=0;i<feeds.length;i++){
+    var T = parseFloat(feeds[i].field1);
+    var H = parseFloat(feeds[i].field2);
+
+    if(!isNaN(T) && !isNaN(H)){
+      H = Math.max(1,Math.min(100,H));
+      data.push({T:T,H:H});
+    }
+  }
+
+  if(data.length === 0){
+    document.getElementById("estadoEjecucion").innerHTML =
+      "Los campos de temperatura y humedad no tienen datos válidos.";
+    return;
+  }
+
+  var last = data[data.length-1];
+  var T = last.T;
+  var H = last.H;
+
+  var HI = heatIndexC(T,H);
+  var Td = dewPointC(T,H);
+  var Tw = wetBulbC(T,H);
+  var WBGT = 0.7*Tw + 0.3*T;
+  var DI = T - (0.55 - 0.0055*H)*(T - 14.5);
+
+  var PMV = estimarPMV(T,H);
+  var PPD = 100 - 95*Math.exp(-0.03353*Math.pow(PMV,4) - 0.2179*Math.pow(PMV,2));
+
+  var exposure = 0;
+
+  for(var j=0;j<data.length;j++){
+    var hiTemp = heatIndexC(data[j].T,data[j].H);
+    var twTemp = wetBulbC(data[j].T,data[j].H);
+    var wbgtTemp = 0.7*twTemp + 0.3*data[j].T;
+
+    if(hiTemp >= 27 || wbgtTemp >= 25){
+      exposure++;
+    }
+  }
+
+  var exposureMin = exposure * 5;
+  var riskScore = calcularRiesgoDifuso(HI,WBGT,Td,DI,PMV,PPD,exposure/data.length);
+
+  actualizarInterfaz(T,H,HI,WBGT,Td,PMV,PPD,exposureMin,riskScore);
+
+  document.getElementById("resultados").style.display = "block";
+  document.getElementById("estadoEjecucion").innerHTML =
+    "Resultados actualizados correctamente.";
+}
+
+function actualizarInterfaz(T,H,HI,WBGT,Td,PMV,PPD,exposureMin,riskScore){
+  document.getElementById("temp").innerHTML = T.toFixed(1) + " °C";
+  document.getElementById("hum").innerHTML = H.toFixed(0) + " %";
+  document.getElementById("heatIndex").innerHTML = HI.toFixed(1) + " °C";
+  document.getElementById("wbgt").innerHTML = WBGT.toFixed(1) + " °C";
+  document.getElementById("dewPoint").innerHTML = Td.toFixed(1) + " °C";
+  document.getElementById("pmv").innerHTML = PMV.toFixed(2);
+  document.getElementById("ppd").innerHTML = PPD.toFixed(0) + " %";
+  document.getElementById("exposure").innerHTML = exposureMin.toFixed(0) + " min";
+
+  var text = "";
+  var recommendation = "";
+  var color = "";
+  var soft = "";
+
+  if(riskScore < 0.75){
+    text = "CONFORTABLE";
+    recommendation = "Mantener monitoreo periódico. Condición térmica aceptable.";
+    color = "#16a34a";
+    soft = "#f0fdf4";
+  }else if(riskScore < 1.5){
+    text = "VIGILANCIA";
+    recommendation = "Verificar ventilación, hidratación y evolución térmica.";
+    color = "#2563eb";
+    soft = "#eff6ff";
+  }else if(riskScore < 2.5){
+    text = "PRECAUCIÓN";
+    recommendation = "Mejorar ventilación, reducir exposición y programar pausas.";
+    color = "#f59e0b";
+    soft = "#fffbeb";
+  }else if(riskScore < 3.5){
+    text = "ALTO";
+    recommendation = "Aplicar pausas, reducir carga física y activar enfriamiento.";
+    color = "#f97316";
+    soft = "#fff7ed";
+  }else{
+    text = "CRÍTICO";
+    recommendation = "Detener exposición y aplicar medidas correctivas inmediatas.";
+    color = "#dc2626";
+    soft = "#fef2f2";
+  }
+
+  document.getElementById("riskLevel").innerHTML = text;
+  document.getElementById("riskLevel").style.color = color;
+  document.getElementById("riskScore").innerHTML =
+    "Índice difuso: " + riskScore.toFixed(2) + " / 4";
+
+  document.getElementById("riskCard").style.borderTopColor = color;
+  document.getElementById("riskCard").style.background =
+    "linear-gradient(135deg,#ffffff," + soft + ")";
+
+  document.getElementById("recommendation").innerHTML = recommendation;
+  document.getElementById("recommendationBox").style.borderLeftColor = color;
+  document.getElementById("recommendationBox").style.background = soft;
+
+  actualizarAlertas(riskScore,text,color);
+
+  var pos = Math.max(0,Math.min(100,(riskScore/4)*100));
+  document.getElementById("riskMarker").style.left = "calc(" + pos + "% - 12px)";
+}
+
+
+function actualizarAlertas(riskScore,text,color){
+  var panel = document.getElementById("alertsPanel");
+  var led = document.getElementById("alertLed");
+  var title = document.getElementById("alertTitle");
+  var message = document.getElementById("alertMessage");
+  var status = document.getElementById("alertStatus");
+  var level = document.getElementById("alertRiskLevel");
+  var action = document.getElementById("alertAction");
+  var time = document.getElementById("alertTime");
+
+  if(!panel || !led){
+    return;
+  }
+
+  var ahora = new Date().toLocaleString("es-EC", {
+    day:"2-digit",
+    month:"2-digit",
+    year:"numeric",
+    hour:"2-digit",
+    minute:"2-digit",
+    second:"2-digit"
+  });
+
+  led.className = "alert-led";
+
+  if(riskScore < 1.5){
+    panel.style.borderLeftColor = "#16a34a";
+    led.classList.add("normal");
+    title.innerHTML = "SIN ALERTA ACTIVA";
+    message.innerHTML = "El sistema se encuentra dentro de condiciones térmicas aceptables.";
+    status.innerHTML = "NORMAL";
+    level.innerHTML = "0 - 1 | " + text;
+    action.innerHTML = "Sin envío de alerta";
+  }
+  else if(riskScore < 2.5){
+    panel.style.borderLeftColor = "#f59e0b";
+    led.classList.add("warning");
+    title.innerHTML = "ALERTA PREVENTIVA";
+    message.innerHTML = "Condición térmica en precaución. Se recomienda verificar ventilación y exposición.";
+    status.innerHTML = "PREVENTIVA";
+    level.innerHTML = "2 | " + text;
+    action.innerHTML = "React puede ejecutar MATLAB Analysis";
+  }
+  else if(riskScore < 3.5){
+    panel.style.borderLeftColor = "#f97316";
+    led.classList.add("high");
+    title.innerHTML = "ALERTA ALTA";
+    message.innerHTML = "Riesgo térmico significativo. Aplicar pausas y medidas de enfriamiento.";
+    status.innerHTML = "ALTA";
+    level.innerHTML = "3 | " + text;
+    action.innerHTML = "Enviar alerta por ThingSpeak Alerts";
+  }
+  else{
+    panel.style.borderLeftColor = "#dc2626";
+    led.classList.add("critical");
+    title.innerHTML = "ALERTA CRÍTICA";
+    message.innerHTML = "Condición térmica crítica. Detener exposición y aplicar acciones inmediatas.";
+    status.innerHTML = "CRÍTICA";
+    level.innerHTML = "4 | " + text;
+    action.innerHTML = "Enviar alerta urgente";
+  }
+
+  status.style.color = color;
+  level.style.color = color;
+  action.style.color = color;
+  time.innerHTML = ahora;
+}
+
+function heatIndexC(Tc,RH){
+  var Tf = Tc*9/5 + 32;
+  RH = Math.max(1,Math.min(100,RH));
+
+  var HI_simple = 0.5 * (Tf + 61.0 + ((Tf - 68.0)*1.2) + (RH*0.094));
+  var HIf;
+
+  if(HI_simple < 80){
+    HIf = HI_simple;
+  }else{
+    HIf = -42.379 + 2.04901523*Tf + 10.14333127*RH
+      - 0.22475541*Tf*RH - 0.00683783*Math.pow(Tf,2)
+      - 0.05481717*Math.pow(RH,2)
+      + 0.00122874*Math.pow(Tf,2)*RH
+      + 0.00085282*Tf*Math.pow(RH,2)
+      - 0.00000199*Math.pow(Tf,2)*Math.pow(RH,2);
+  }
+
+  return (HIf - 32)*5/9;
+}
+
+function dewPointC(T,RH){
+  RH = Math.max(1,Math.min(100,RH));
+  var a = 17.27;
+  var b = 237.7;
+  var gamma = (a*T)/(b+T) + Math.log(RH/100);
+  return (b*gamma)/(a-gamma);
+}
+
+function wetBulbC(T,RH){
+  RH = Math.max(1,Math.min(100,RH));
+
+  return T*Math.atan(0.151977*Math.sqrt(RH + 8.313659))
+    + Math.atan(T + RH)
+    - Math.atan(RH - 1.676331)
+    + 0.00391838*Math.pow(RH,1.5)*Math.atan(0.023101*RH)
+    - 4.686035;
+}
+
+function estimarPMV(T,H){
+  var base = (T - 24) / 4;
+  var humedad = (H - 50) / 100;
+  return base + humedad;
+}
+
+function calcularRiesgoDifuso(HI,WBGT,Td,DI,PMV,PPD,exposure){
+  var score = 0;
+
+  if(HI >= 27) score += 0.7;
+  if(HI >= 32) score += 0.8;
+  if(HI >= 40) score += 1.0;
+
+  if(WBGT >= 25) score += 0.6;
+  if(WBGT >= 28.5) score += 0.8;
+  if(WBGT >= 32) score += 1.0;
+
+  if(Td >= 21) score += 0.5;
+  if(DI >= 27.5) score += 0.5;
+  if(PMV >= 1.2) score += 0.5;
+  if(PPD >= 40) score += 0.5;
+  if(exposure >= 0.45) score += 0.5;
+  if(exposure >= 0.75) score += 0.5;
+
+  return Math.max(0,Math.min(4,score));
+}
+</script>
+
+</body>
+</html>

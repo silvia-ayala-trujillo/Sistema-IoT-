@@ -1,0 +1,15 @@
+ESTACIÓN 1
+username = Ji0XEB8tMDQ7OxodHwYnOAg
+clientId = Ji0XEB8tMDQ7OxodHwYnOAg
+password = F+dywJSndmtDPQUFEAcYR8eC
+
+ESTACIÓN 2
+username = PRM1DCQgGC0ZGRowIy04BjE
+clientId = PRM1DCQgGC0ZGRowIy04BjE
+password = OE2vxi2PYkgli/9Si2Jcryip
+
+
+ESTACIÓN 3
+username = AjMHHgEhLjkIMRAiJR8XJSY
+clientId = AjMHHgEhLjkIMRAiJR8XJSY
+password = KGD/lQCUwniIUZOXDvtBqOEB

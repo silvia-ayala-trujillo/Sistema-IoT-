@@ -1,0 +1,250 @@
+# ==========================================================
+# ATOMS3 LITE ESTACIÓN 3 - ESCLAVO
+# DHT22 + CONTROL LOCAL DE CALEFACTOR
+# ENVIO DE DATOS AL MAESTRO POR ESP-NOW
+# RECEPCION DE COMANDOS DESDE EL MAESTRO POR ESP-NOW
+#
+# IMPORTANTE:
+# - Este nodo NO se conecta directamente a Node-RED.
+# - Este nodo NO publica directamente en ThingSpeak.
+# - El maestro lee los comandos de ThingSpeak/Node-RED.
+# - El maestro envía los comandos a este esclavo por ESP-NOW.
+# ==========================================================
+
+import M5
+from M5 import *
+from m5espnow import *
+import time
+import dht
+from machine import Pin
+import ustruct
+import ubinascii
+
+M5.begin()
+
+# ==========================================================
+# CONFIGURACION ESP-NOW
+# ==========================================================
+
+MAESTRO_MAC = "34B7DA57368C"
+
+# Debe ser el mismo canal usado en el maestro.
+espnow = M5ESPNow(0)
+
+# Se registra el maestro para enviarle datos.
+espnow.set_add_peer(MAESTRO_MAC, 1, 0, False)
+
+# ==========================================================
+# CONFIGURACION DE PINES ESTACIÓN 3
+# ==========================================================
+
+DHT_PIN = 2
+LED_PIN = 5
+RELE_PIN = 6
+
+sensor = dht.DHT22(Pin(DHT_PIN, Pin.IN, Pin.PULL_UP))
+led = Pin(LED_PIN, Pin.OUT)
+rele = Pin(RELE_PIN, Pin.OUT)
+
+led.value(0)
+rele.value(0)
+
+# ==========================================================
+# PARAMETROS DE CONTROL AUTOMATICO
+# ==========================================================
+
+TEMP_ENCENDIDO = 25.0
+TEMP_APAGADO = 40.0
+
+INTERVALO_ENVIO = 10
+
+# ==========================================================
+# VARIABLES DE ESTADO ESTACIÓN 3
+# ==========================================================
+
+estado_calefactor = 0
+modo_auto = 0
+estado_manual = 0
+
+# ==========================================================
+# FUNCION PARA MOSTRAR MAC
+# ==========================================================
+
+def mac_string(mac):
+    mac_hex = ubinascii.hexlify(mac).decode().upper()
+    return ":".join(mac_hex[i:i+2] for i in range(0, len(mac_hex), 2))
+
+print("MAC del esclavo ESTACIÓN 3:")
+print(mac_string(espnow.get_mac(0)))
+
+# ==========================================================
+# RECEPCION DE COMANDOS DESDE EL MAESTRO
+# ==========================================================
+# El maestro envía 2 enteros:
+#
+# 1. modo_auto
+# 2. estado_manual
+#
+# Tamaño del paquete:
+# 2 enteros x 4 bytes = 8 bytes
+#
+# Significado:
+# modo_auto = 1, estado_manual = 0  -> automático
+# modo_auto = 0, estado_manual = 1  -> manual ON
+# modo_auto = 0, estado_manual = 0  -> apagado
+
+def recibir_comando_maestro(espnow_obj):
+    global modo_auto
+    global estado_manual
+
+    try:
+        mac, dato = espnow_obj.recv_data()
+
+        print("Comando recibido de:", mac_string(mac))
+
+        if isinstance(dato, bytes) and len(dato) == 8:
+
+            valor_auto, valor_manual = ustruct.unpack("<ii", dato)
+
+            if valor_auto == 1:
+                modo_auto = 1
+                estado_manual = 0
+                print("COMANDO MAESTRO: MODO AUTOMATICO ESTACIÓN 3")
+
+            elif valor_manual == 1:
+                modo_auto = 0
+                estado_manual = 1
+                print("COMANDO MAESTRO: MODO MANUAL ON ESTACIÓN 3")
+
+            else:
+                modo_auto = 0
+                estado_manual = 0
+                print("COMANDO MAESTRO: APAGAR ESTACIÓN 3")
+
+        else:
+            print("Paquete recibido no corresponde a comando:", dato)
+
+    except Exception as e:
+        print("Error recibiendo comando del maestro:", e)
+
+espnow.set_irq_callback(recibir_comando_maestro)
+
+# ==========================================================
+# FUNCION PARA ACTIVAR O DESACTIVAR CALEFACTOR
+# ==========================================================
+
+def aplicar_salida(estado):
+    global estado_calefactor
+
+    estado_calefactor = estado
+
+    led.value(estado_calefactor)
+    rele.value(estado_calefactor)
+
+    if estado_calefactor == 1:
+        print("CALEFACTOR ESTACIÓN 3: ENCENDIDO")
+    else:
+        print("CALEFACTOR ESTACIÓN 3: APAGADO")
+
+# ==========================================================
+# CONTROL DEL CALEFACTOR ESTACIÓN 3
+# ==========================================================
+
+def controlar_sistema(temperatura):
+    global estado_calefactor
+
+    if modo_auto == 1:
+
+        print("CONTROL AUTOMATICO ESTACIÓN 3")
+
+        if estado_calefactor == 0 and temperatura <= TEMP_ENCENDIDO:
+            aplicar_salida(1)
+
+        elif estado_calefactor == 1 and temperatura >= TEMP_APAGADO:
+            aplicar_salida(0)
+
+        else:
+            aplicar_salida(estado_calefactor)
+
+    elif estado_manual == 1:
+
+        print("CONTROL MANUAL ESTACIÓN 3")
+        aplicar_salida(1)
+
+    else:
+
+        print("ESTACIÓN 3 SIN MODO ACTIVO")
+        aplicar_salida(0)
+
+    return estado_calefactor
+
+# ==========================================================
+# ENVIO DE DATOS AL MAESTRO POR ESP-NOW
+# ==========================================================
+# Se envían 5 datos:
+# temperatura, humedad, estado_calefactor, modo_auto, estado_manual
+#
+# Temperatura y humedad se multiplican por 100 para conservar decimales.
+# El maestro espera un paquete de 20 bytes.
+
+def enviar_espnow(temperatura, humedad, estado_calefactor, modo_auto, estado_manual):
+
+    temp_int = int(temperatura * 100)
+    hum_int = int(humedad * 100)
+
+    paquete = ustruct.pack(
+        "<iiiii",
+        temp_int,
+        hum_int,
+        estado_calefactor,
+        modo_auto,
+        estado_manual
+    )
+
+    try:
+        espnow.send_data(1, paquete)
+        print("Datos enviados por ESP-NOW al maestro")
+
+    except Exception as e:
+        print("Error enviando ESP-NOW:", e)
+
+# ==========================================================
+# LOOP PRINCIPAL
+# ==========================================================
+
+while True:
+
+    try:
+        M5.update()
+
+        sensor.measure()
+
+        temperatura = sensor.temperature()
+        humedad = sensor.humidity()
+
+        print()
+        print("================================")
+        print("ESTACIÓN 3 - ESCLAVO")
+        print("Temperatura:", temperatura, "C")
+        print("Humedad:", humedad, "%")
+        print("Modo automatico:", modo_auto)
+        print("Estado manual:", estado_manual)
+
+        estado_actual = controlar_sistema(temperatura)
+
+        enviar_espnow(
+            temperatura,
+            humedad,
+            estado_actual,
+            modo_auto,
+            estado_manual
+        )
+
+    except Exception as e:
+        print("Error general esclavo:", e)
+
+        led.value(0)
+        rele.value(0)
+        estado_calefactor = 0
+
+    time.sleep(INTERVALO_ENVIO)
