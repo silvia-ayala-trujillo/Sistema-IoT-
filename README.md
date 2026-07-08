@@ -1,14 +1,8 @@
 <div align="center">
 
-# 🌡️ Sistema IoT Multiestación
+# 🌡️ Sistema IoT Multiestación para Supervisión de Confort Térmico con Lógica Difusa
 
 ## Supervisión de Confort Térmico con ATOM S3 Lite, MQTT, Node-RED y ThingSpeak
-
-![MicroPython](https://img.shields.io/badge/MicroPython-ESP32--S3-blue?style=for-the-badge)
-![Node-RED](https://img.shields.io/badge/Node--RED-Dashboard-red?style=for-the-badge)
-![MQTT](https://img.shields.io/badge/MQTT-HiveMQ-green?style=for-the-badge)
-![ThingSpeak](https://img.shields.io/badge/ThingSpeak-MATLAB-orange?style=for-the-badge)
-![IoT](https://img.shields.io/badge/Project-IoT-blueviolet?style=for-the-badge)
 
 </div>
 
@@ -16,9 +10,7 @@
 
 ## 📌 Descripción del Proyecto
 
-Este proyecto implementa un **sistema IoT multiestación** para la supervisión de confort térmico en oficinas, integrando sensores ambientales, comunicación MQTT, almacenamiento en la nube, visualización web y control automático del calefactor.
-
-El sistema permite monitorear variables ambientales en tiempo real, visualizar datos históricos y ejecutar acciones de control mediante plataformas IoT como **Node-RED**, **ThingSpeak** y **HiveMQ**.
+Diseño e integración de un sistema IoT multiestación para monitoreo y control térmico en tres estaciones de trabajo con condiciones ambientales diferenciadas. Cada estación incorpora un nodo M5Stack AtomS3 Lite, un sensor DHT22, un relé y un calefactor independiente. La lógica local permite control de temperatura por histéresis en cada estación, mientras que el control remoto se realiza desde un dashboard en Node-RED o desde una página web conectada a ThingSpeak. Los nodos se comunican entre sí mediante ESP-NOW; el nodo maestro es el único con acceso a la red WiFi local y mantiene comunicación bidireccional por HTTP con Node-RED. A su vez, Node-RED intercambia datos bidireccionalmente por MQTT con dispositivos de ThingSpeak creados para cada estación. En la nube se visualizan temperatura, humedad, estado del calefactor, modo de operación, gráficas temporales e indicadores térmicos. El análisis en MATLAB se ejecuta cada 15 minutos y calcula Heat Index, punto de rocío, bulbo húmedo estimado, WBGT estimado e índice de disconfort. Además, combina 	índices térmicos, tendencia y exposición mediante lógica difusa para clasificar el riesgo, mostrar alertas y enviar reportes por correo por estación. El resultado muestra el adecuado funcionamiento del sistema con una arquitectura modular, replicable y orientada a la supervisión térmica simultánea de múltiples puestos de trabajo.
 
 ---
 
@@ -38,7 +30,7 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 <td align="center" width="33%">
 
 ### ▶️ Video 1  
-**Funcionamiento General**
+**Funcionamiento Estación 1 - Maestro**
 
 <a href="https://www.youtube.com/shorts/dlZtpzraf4g">
   <img src="images/01_Componentes_del_sistema.png" width="280">
@@ -51,7 +43,7 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 <td align="center" width="33%">
 
 ### ▶️ Video 2  
-**Dashboard y Control**
+**Funcionamiento Estación 2 - Esclavo**
 
 <a href="https://www.youtube.com/shorts/fxgREKSWUAM">
   <img src="images/01_Componentes_del_sistema.png" width="280">
@@ -64,7 +56,7 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 <td align="center" width="33%">
 
 ### ▶️ Video 3  
-**Integración IoT**
+**Funcionamiento Estación 3 - Esclavo**
 
 <a href="https://www.youtube.com/shorts/SZaQv0HgcMM">
   <img src="images/01_Componentes_del_sistema.png" width="280">
@@ -79,32 +71,6 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 
 ---
 
-## ⚙️ Arquitectura del Sistema
-
-```text
-                 DHT22
-                   │
-                   ▼
-             ATOM S3 Lite
-                   │
-              WiFi / MQTT
-                   │
-                   ▼
-              HiveMQ Broker
-              ┌────┴────┐
-              │         │
-              ▼         ▼
-          Node-RED   ThingSpeak
-              │         │
-              ▼         ▼
-        Dashboard   MATLAB Analytics
-              │
-              ▼
-      Control del Calefactor
-```
-
----
-
 ## 🧩 Tecnologías Utilizadas
 
 | Tecnología | Aplicación |
@@ -115,7 +81,7 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 | **MQTT** | Comunicación IoT |
 | **HiveMQ** | Broker MQTT |
 | **Node-RED** | Dashboard y lógica de supervisión |
-| **ThingSpeak** | Almacenamiento y análisis de datos |
+| **ThingSpeak** | Dashboard y lógica de supervisión - Almacenamiento y análisis de datos |
 | **MATLAB Analytics** | Procesamiento y alertas |
 
 ---
@@ -140,50 +106,6 @@ El sistema permite monitorear variables ambientales en tiempo real, visualizar d
 
 ---
 
-## 📂 Estructura del Repositorio
-
-```text
-Sistema-IoT
-│
-├── images
-│   └── 01_Componentes_del_sistema.png
-│
-├── PROGRAMACIÓN NODE RED
-│
-├── PROGRAMACIÓN THINGSPEAK
-│
-├── PROGRAMACIÓN UIFLOW
-│
-└── README.md
-```
-
----
-
-## 📊 Flujo General de Operación
-
-1. El sensor **DHT22** mide temperatura y humedad.
-2. El **ATOM S3 Lite** procesa los datos.
-3. Los datos son enviados mediante **MQTT**.
-4. **Node-RED** recibe, visualiza y controla el sistema.
-5. **ThingSpeak** almacena los datos históricos.
-6. El sistema permite operar el calefactor en modo manual o automático.
-
----
-
-## 👨‍💻 Autor
-
-**Diego Ayala**  
-Ingeniero de Petróleos  
-Doctor en Ciencias de la Tierra  
-Máster en Petróleos  
-Máster en Energías Renovables  
-Maestrante en Robótica y Automatización  
-
-Ecuador 🇪🇨
-
----
-
-<div align="center">
 
 ### ⭐ Proyecto académico de IoT, automatización y supervisión térmica
 
