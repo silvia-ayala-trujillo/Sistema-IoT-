@@ -1,7 +1,6 @@
 <div align="center">
 
-# 🌡️ Sistema IoT Multiestación  
-## Supervisión de Confort Térmico con Lógica Difusa
+# 🌡️ Sistema IoT Multiestación para Supervisión de Confort Térmico con Lógica Difusa
 
 ### ATOM S3 Lite · ESP-NOW · MQTT · Node-RED · ThingSpeak · MATLAB Analytics
 
