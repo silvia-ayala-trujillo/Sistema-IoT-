@@ -1,127 +1,134 @@
-<div align="center">
-
+::: {align="center"}
 # 🌡️ Sistema IoT Multiestación para Supervisión de Confort Térmico con Lógica Difusa
 
 ### ATOM S3 Lite · ESP-NOW · MQTT · Node-RED · ThingSpeak · MATLAB Analytics
+------------------------------------------------------------------------
 
-![IoT](https://img.shields.io/badge/Proyecto-IoT-blue?style=for-the-badge)
-![ESP-NOW](https://img.shields.io/badge/ESP--NOW-Comunicaci%C3%B3n-green?style=for-the-badge)
-![MQTT](https://img.shields.io/badge/MQTT-HiveMQ-orange?style=for-the-badge)
-![Node-RED](https://img.shields.io/badge/Node--RED-Dashboard-red?style=for-the-badge)
-![ThingSpeak](https://img.shields.io/badge/ThingSpeak-Cloud-lightgrey?style=for-the-badge)
-![MATLAB](https://img.shields.io/badge/MATLAB-Analytics-blueviolet?style=for-the-badge)
+# 📌 Descripción del Proyecto
 
-</div>
-
----
-
-## 📌 Descripción del Proyecto
-
+```{=html}
 <p align="justify">
-Este proyecto presenta el diseño e integración de un sistema IoT multiestación para el monitoreo y control térmico de tres estaciones de trabajo con condiciones ambientales diferenciadas. Cada estación incorpora un nodo M5Stack AtomS3 Lite, un sensor DHT22, un módulo de relé y un calefactor independiente. El control local se ejecuta mediante una estrategia de histéresis implementada en cada nodo, mientras que la supervisión remota puede realizarse desde un dashboard desarrollado en Node-RED o mediante una página web conectada a ThingSpeak.
+```
+Este proyecto presenta el diseño e integración de un sistema IoT
+multiestación para el monitoreo y control térmico de tres estaciones de
+trabajo con condiciones ambientales diferenciadas. Cada estación
+incorpora un nodo M5Stack AtomS3 Lite, un sensor DHT22, un módulo de
+relé y un calefactor independiente. El control local se ejecuta mediante
+histéresis, mientras que el control remoto puede realizarse desde
+Node‑RED o desde una interfaz web implementada sobre ThingSpeak.
+
+Los nodos intercambian información mediante ESP‑NOW. El nodo maestro es
+el único conectado a la red WiFi y actúa como pasarela entre la red de
+sensores y Node‑RED mediante HTTP bidireccional. Posteriormente,
+Node‑RED sincroniza datos y comandos con ThingSpeak mediante MQTT.
+
+MATLAB Analysis ejecuta periódicamente el cálculo de Heat Index, Punto
+de Rocío, Bulbo Húmedo Estimado, WBGT Estimado, Índice de Disconfort,
+PMV, PPD y otros indicadores térmicos. Mediante lógica difusa se
+clasifica el riesgo térmico y se generan alertas automáticas y reportes
+por correo electrónico.
+
+```{=html}
 </p>
+```
 
-<p align="justify">
-Los nodos intercambian información mediante ESP-NOW, permitiendo que únicamente el nodo maestro mantenga conexión con la red WiFi local y actúe como pasarela entre la red inalámbrica de estaciones y Node-RED mediante comunicación HTTP bidireccional. A su vez, Node-RED sincroniza datos y comandos con ThingSpeak utilizando MQTT bidireccional, lo que permite supervisar temperatura, humedad, estado del calefactor, modo de operación, gráficas temporales e indicadores térmicos por estación.
-</p>
+------------------------------------------------------------------------
 
-<p align="justify">
-La plataforma incorpora análisis automático en MATLAB cada 15 minutos para calcular indicadores térmicos como Heat Index, punto de rocío, temperatura de bulbo húmedo estimada, WBGT estimado e índice de disconfort. Estos indicadores se combinan con tendencia temporal y exposición reciente mediante lógica difusa para clasificar el nivel de riesgo térmico, mostrar alertas y enviar reportes por correo electrónico por estación. El resultado es una arquitectura modular, replicable y orientada a la supervisión térmica simultánea de múltiples puestos de trabajo.
-</p>
+# 🖼️ Componentes del Sistema
 
----
-
-## 🖼️ Componentes del Sistema
-
+```{=html}
 <p align="center">
-  <img src="IMAGES/01_Componentes_del_sistema.png" width="950">
+```
+`<img src="images/01_Componentes_del_sistema.png" width="950">`{=html}
+```{=html}
 </p>
+```
 
----
+------------------------------------------------------------------------
 
-## 🎥 Videos Demostrativos
+# 🎥 Videos Demostrativos
 
-<table>
-<tr>
+  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                      Estación 1                                                                                                                                          Estación 2                                                                                                                                          Estación 3
+  --------------------------------------------------------------------------------------------------------------------------------------------------- --------------------------------------------------------------------------------------------------------------------------------------------------- ---------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                   **Nodo Maestro**                                                                                                                                    **Nodo Esclavo**                                                                                                                                    **Nodo Esclavo**
 
-<td align="center" width="33%">
+   `<a href="https://www.youtube.com/shorts/dlZtpzraf4g">`{=html}`<img src="images/01_Componentes_del_sistema.png" width="260">`{=html}`</a>`{=html}   `<a href="https://www.youtube.com/shorts/fxgREKSWUAM">`{=html}`<img src="images/01_Componentes_del_sistema.png" width="260">`{=html}`</a>`{=html}   `<a href="https://www.youtube.com/shorts/SZaQv0HgcMM">`{=html}`<img src="images/01_Componentes_del_sistema.png" width="260">`{=html}`</a>`{=html}
 
-### ▶️ Estación 1  
-**Nodo Maestro**
+                                               [▶ Ver Video](https://www.youtube.com/shorts/dlZtpzraf4g)                                                                                           [▶ Ver Video](https://www.youtube.com/shorts/fxgREKSWUAM)                                                                                           [▶ Ver Video](https://www.youtube.com/shorts/SZaQv0HgcMM)
+  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-<a href="https://www.youtube.com/shorts/dlZtpzraf4g">
-  <img src="01_Componentes_del_sistema.png" width="280">
-</a>
+------------------------------------------------------------------------
 
-[Ver video](https://www.youtube.com/shorts/dlZtpzraf4g)
+# 🧩 Tecnologías Utilizadas
 
-</td>
+  Tecnología            Aplicación
+  --------------------- --------------------------------------
+  M5Stack AtomS3 Lite   Nodo de adquisición y control
+  DHT22                 Medición de temperatura y humedad
+  ESP-NOW               Comunicación entre estaciones
+  WiFi                  Conectividad del nodo maestro
+  HTTP                  Comunicación con Node‑RED
+  MQTT / HiveMQ         Intercambio de datos IoT
+  Node‑RED              Dashboard y control
+  ThingSpeak            Nube y almacenamiento
+  MATLAB Analysis       Indicadores térmicos y lógica difusa
 
-<td align="center" width="33%">
+------------------------------------------------------------------------
 
-### ▶️ Estación 2  
-**Nodo Esclavo**
+# 🚀 Funcionalidades Principales
 
-<a href="https://www.youtube.com/shorts/fxgREKSWUAM">
-  <img src="01_Componentes_del_sistema.png" width="280">
-</a>
+  -----------------------------------------------------------------------
+  Funcionalidad                       Descripción
+  ----------------------------------- -----------------------------------
+  🌡️ Monitoreo Multiestación          Supervisión simultánea de tres
+                                      estaciones.
 
-[Ver video](https://www.youtube.com/shorts/fxgREKSWUAM)
+  📊 Temperatura y Humedad            Lectura continua mediante DHT22.
 
-</td>
+  🔥 Control por Histéresis           Control automático del calefactor.
 
-<td align="center" width="33%">
+  🎮 Modo Manual y Automático         Cambio remoto desde Node‑RED y
+                                      ThingSpeak.
 
-### ▶️ Estación 3  
-**Nodo Esclavo**
+  📡 ESP‑NOW                          Comunicación inalámbrica entre
+                                      nodos.
 
-<a href="https://www.youtube.com/shorts/SZaQv0HgcMM">
-  <img src="01_Componentes_del_sistema.png" width="280">
-</a>
+  ☁️ MQTT                             Integración con ThingSpeak.
 
-[Ver video](https://www.youtube.com/shorts/SZaQv0HgcMM)
+  🖥️ Dashboard                        Supervisión en tiempo real mediante
+                                      Node‑RED.
 
-</td>
+  📈 Histórico                        Registro de variables ambientales.
 
-</tr>
-</table>
+  🧠 MATLAB Analysis                  Cálculo de indicadores térmicos.
 
----
+  🚨 Lógica Difusa                    Clasificación automática del
+                                      riesgo.
 
-## ⚙️ Arquitectura del Sistema
+  📧 Alertas                          Envío automático de correos
+                                      electrónicos.
 
-```text
-        ┌────────────────────┐
-        │   Estación 1       │
-        │ AtomS3 + DHT22     │
-        │ Relé + Calefactor  │
-        └─────────┬──────────┘
-                  │
-                  │ ESP-NOW
-                  ▼
-        ┌────────────────────┐
-        │   Nodo Maestro     │
-        │ AtomS3 + WiFi      │
-        │ HTTP Bidireccional │
-        └─────────┬──────────┘
-                  │
-                  │ HTTP
-                  ▼
-        ┌────────────────────┐
-        │      Node-RED      │
-        │ Dashboard + Control│
-        └─────────┬──────────┘
-                  │
-                  │ MQTT
-                  ▼
-        ┌────────────────────┐
-        │     ThingSpeak     │
-        │ Cloud + Web + API  │
-        └─────────┬──────────┘
-                  │
-                  │ MATLAB Analysis
-                  ▼
-        ┌────────────────────┐
-        │  Alertas y Reportes│
-        │  Riesgo Térmico    │
-        └────────────────────┘
+  🔄 Arquitectura Modular             Sistema escalable y replicable.
+  -----------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# 🧠 Indicadores Calculados
+
+-   Heat Index
+-   Punto de Rocío
+-   Bulbo Húmedo Estimado
+-   WBGT Estimado
+-   Índice de Disconfort
+-   PMV
+-   PPD
+-   Tendencia Térmica
+-   Exposición Reciente
+-   RiskScore Difuso
+
+------------------------------------------------------------------------
+
+::: {align="center"}
+### ⭐ Proyecto académico de IoT, Automatización y Supervisión Térmica Inteligente
+:::
