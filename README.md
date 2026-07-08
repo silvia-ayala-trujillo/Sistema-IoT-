@@ -34,7 +34,7 @@ La plataforma incorpora análisis automático en MATLAB cada 15 minutos para cal
 ## 🖼️ Componentes del Sistema
 
 <p align="center">
-  <img src="01_Componentes_del_sistema.png" width="950">
+  <img src="IMAGES/01_Componentes_del_sistema.png" width="950">
 </p>
 
 ---
