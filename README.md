@@ -2,6 +2,15 @@
 # 🌡️ Sistema IoT Multiestación para Supervisión de Confort Térmico con Lógica Difusa
 
 ### ATOM S3 Lite · ESP-NOW · MQTT · Node-RED · ThingSpeak · MATLAB Analytics
+
+![IoT](https://img.shields.io/badge/Proyecto-IoT-blue?style=for-the-badge)
+![ESP-NOW](https://img.shields.io/badge/ESP--NOW-Comunicación-green?style=for-the-badge)
+![MQTT](https://img.shields.io/badge/MQTT-HiveMQ-orange?style=for-the-badge)
+![Node-RED](https://img.shields.io/badge/Node--RED-Dashboard-red?style=for-the-badge)
+![ThingSpeak](https://img.shields.io/badge/ThingSpeak-Cloud-lightgrey?style=for-the-badge)
+![MATLAB](https://img.shields.io/badge/MATLAB-Analytics-blueviolet?style=for-the-badge)
+:::
+
 ------------------------------------------------------------------------
 
 # 📌 Descripción del Proyecto
@@ -126,6 +135,35 @@ por correo electrónico.
 -   Tendencia Térmica
 -   Exposición Reciente
 -   RiskScore Difuso
+
+------------------------------------------------------------------------
+
+# 📂 Estructura del Repositorio
+
+``` text
+Sistema-IoT
+│
+├── images
+│   └── 01_Componentes_del_sistema.png
+├── PROGRAMACIÓN NODE RED
+├── PROGRAMACIÓN THINGSPEAK
+├── PROGRAMACIÓN UIFLOW
+└── README.md
+```
+
+------------------------------------------------------------------------
+
+# 👨‍💻 Autor
+
+**Diego Ayala**
+
+-   Ingeniero de Petróleos
+-   Doctor en Ciencias de la Tierra
+-   Máster en Petróleos
+-   Máster en Energías Renovables
+-   Maestrante en Robótica y Automatización
+
+Ecuador 🇪🇨
 
 ------------------------------------------------------------------------
 
