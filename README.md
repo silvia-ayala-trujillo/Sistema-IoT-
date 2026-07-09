@@ -38,7 +38,7 @@ Finalmente, el sistema combina índices térmicos, tendencia y exposición media
 **Nodo Maestro**
 
 <a href="https://www.youtube.com/shorts/dlZtpzraf4g">
-  <img src="IMAGES/01_Componentes del sistema.png" width="270">
+  <img src="IMAGES/Estacion1.jpeg" width="270">
 </a>
 
 [Ver video](https://www.youtube.com/shorts/dlZtpzraf4g)
@@ -50,7 +50,7 @@ Finalmente, el sistema combina índices térmicos, tendencia y exposición media
 **Nodo Esclavo**
 
 <a href="https://www.youtube.com/shorts/fxgREKSWUAM">
-  <img src="IMAGES/01_Componentes del sistema.png" width="270">
+  <img src="IMAGES/Estacion2.jpeg" width="270">
 </a>
 
 [Ver video](https://www.youtube.com/shorts/fxgREKSWUAM)
@@ -62,7 +62,7 @@ Finalmente, el sistema combina índices térmicos, tendencia y exposición media
 **Nodo Esclavo**
 
 <a href="https://www.youtube.com/shorts/SZaQv0HgcMM">
-  <img src="IMAGES/01_Componentes del sistema.png" width="270">
+  <img src="IMAGES/Estacion3.jpeg" width="270">
 </a>
 
 [Ver video](https://www.youtube.com/shorts/SZaQv0HgcMM)
