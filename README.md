@@ -87,7 +87,7 @@ Finalmente, el sistema combina índices térmicos, tendencia y exposición media
 | **HTTP** | Comunicación bidireccional entre nodo maestro y Node-RED |
 | **MQTT / HiveMQ** | Intercambio de datos y comandos IoT |
 | **Node-RED** | Dashboard local, supervisión y control |
-| **ThingSpeak** | Visualización web, almacenamiento y canalización de datos |
+| **ThingSpeak** | Visualización web, almacenamiento y canalización de datos, supervisión y control  |
 | **MATLAB Analytics** | Cálculo de indicadores térmicos, lógica difusa y alertas |
 
 ---
