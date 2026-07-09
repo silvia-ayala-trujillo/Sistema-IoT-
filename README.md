@@ -176,26 +176,6 @@ Finalmente, el sistema combina índices térmicos, tendencia y exposición media
 
 ---
 
-## ✅ Resultados Esperados
-
-- Supervisión térmica simultánea de tres estaciones.
-- Control independiente del calefactor en cada puesto.
-- Visualización local mediante Node-RED.
-- Visualización remota mediante ThingSpeak.
-- Comunicación distribuida mediante ESP-NOW.
-- Registro histórico de variables ambientales.
-- Diagnóstico térmico basado en lógica difusa.
-- Alertas automáticas por estación.
-- Arquitectura modular, replicable y escalable.
-
----
-
-## 🧪 Alcance del Prototipo
-
-Este sistema corresponde a un prototipo académico y experimental orientado a la supervisión térmica de estaciones de trabajo. Los sensores DHT22 permiten observar tendencias ambientales y validar la arquitectura IoT, pero no sustituyen instrumentos certificados para evaluación ocupacional formal. Para aplicaciones industriales o normativas, se recomienda calibrar sensores, verificar lecturas con instrumentos patrón e incorporar mediciones adicionales como velocidad del aire, temperatura radiante y condiciones de ventilación.
-
----
-
 ### ⭐ Proyecto académico de IoT, automatización y supervisión térmica inteligente
 
 </div>
